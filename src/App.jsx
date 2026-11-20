@@ -18,6 +18,7 @@ import NewChatModal from '@/components/NewChatModal'
 import Navigation, { TabPlaceholder } from '@/components/Navigation'
 import NewGroupModal from '@/components/NewGroupModal'
 import ProfileModal from '@/components/ProfileModal'
+import QRScanner from '@/components/QRScanner'
 import Avatar from '@/components/Avatar'
 
 function ForwardModal({ targets, preview, onClose, onPick }) {
@@ -122,6 +123,7 @@ function ChatApp() {
   const [newGroupOpen, setNewGroupOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('chats')
   const [contactCard, setContactCard] = useState(null)
+  const [scannerOpen, setScannerOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [profileTab, setProfileTab] = useState('profile')
   const [uploading, setUploading] = useState(false)
@@ -145,14 +147,15 @@ function ChatApp() {
       newChatOpen ||
       newGroupOpen ||
       Boolean(forwarding) ||
-      Boolean(contactCard)
+      Boolean(contactCard) ||
+      scannerOpen
     if (away && !awayFromHomeRef.current) {
       window.history.pushState({ chatwave: 'away' }, '')
       awayFromHomeRef.current = true
     } else if (!away) {
       awayFromHomeRef.current = false
     }
-  }, [activeTab, mobileChatOpen, profileOpen, newChatOpen, newGroupOpen, forwarding, contactCard])
+  }, [activeTab, mobileChatOpen, profileOpen, newChatOpen, newGroupOpen, forwarding, contactCard, scannerOpen])
 
   useEffect(() => {
     const goHome = () => {
@@ -164,6 +167,7 @@ function ChatApp() {
       setNewGroupOpen(false)
       setForwarding(null)
       setContactCard(null)
+      setScannerOpen(false)
       awayFromHomeRef.current = false
     }
     window.addEventListener('popstate', goHome)
@@ -553,6 +557,29 @@ function ChatApp() {
     showToast('Username copied')
   }
 
+  const handleQrPick = async (username) => {
+    setScannerOpen(false)
+    const clean = String(username || '').trim().toLowerCase()
+    if (!clean) {
+      showToast('Invalid QR code')
+      return
+    }
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('username', clean)
+      .maybeSingle()
+    if (error || !data) {
+      showToast('No account found with that username')
+      return
+    }
+    if (data.id === user.id) {
+      showToast('That is your own QR code')
+      return
+    }
+    handlePick(data.id)
+  }
+
   const handleSetTimer = async (timer) => {
     if (!activeId) return false
     const ok = await setDisappearingTimer(activeId, timer)
@@ -572,6 +599,7 @@ function ChatApp() {
         onSelect={handleSelect}
         onNewChat={() => setNewChatOpen(true)}
         onNewGroup={() => setNewGroupOpen(true)}
+        onScan={() => setScannerOpen(true)}
         onSignOut={signOut}
         onProfile={() => openProfile('profile')}
         onSettings={() => openProfile('settings')}
@@ -666,6 +694,9 @@ function ChatApp() {
           onClose={() => setNewGroupOpen(false)}
           onCreate={handleCreateGroup}
         />
+      )}
+      {scannerOpen && (
+        <QRScanner onClose={() => setScannerOpen(false)} onPick={handleQrPick} />
       )}
       {contactCard && (
         <ContactCard

@@ -7,6 +7,7 @@ import {
   LogOut,
   MessageSquarePlus,
   Plus,
+  ScanLine,
   Search,
   Settings,
   Sparkles,
@@ -22,6 +23,7 @@ export default function Sidebar({
   onSelect,
   onNewChat,
   onNewGroup,
+  onScan,
   onSignOut,
   onProfile,
   onSettings,
@@ -183,6 +185,15 @@ export default function Sidebar({
             aria-label="New group"
           >
             <Users size={20} />
+          </button>
+          <button
+            type="button"
+            onClick={onScan}
+            className="icon-btn text-wa-text hover:text-white"
+            aria-label="Scan QR code"
+            title="Scan QR code"
+          >
+            <ScanLine size={20} />
           </button>
           <button
             type="button"

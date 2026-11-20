@@ -1,4 +1,4 @@
-﻿import { useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import {
   AtSign,
   Bell,
@@ -14,6 +14,7 @@ import {
   Moon,
   Sun,
   Palette,
+  QrCode,
   Settings,
   Sparkles,
   UserRound,
@@ -22,6 +23,7 @@ import {
 } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import { supabase } from '@/lib/supabase'
+import { makeQrDataUrl } from '@/lib/qr'
 
 const USERNAME_PATTERN = /^[a-z0-9._]{3,20}$/
 
@@ -55,7 +57,7 @@ const joinedLabel = (iso) => {
   return new Date(iso).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
 }
 
-function SettingRow({ icon: Icon, title, description, value, onToggle }) {
+function SettingRow({ icon: Icon, title, description, value, onToggle, actionLabel }) {
   return (
     <button
       type="button"
@@ -71,17 +73,23 @@ function SettingRow({ icon: Icon, title, description, value, onToggle }) {
           {description}
         </span>
       </span>
-      <span
-        className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
-          value ? 'bg-wa-green' : 'bg-white/15'
-        }`}
-      >
+      {actionLabel ? (
+        <span className="shrink-0 rounded-full border border-wa-green/25 bg-wa-green/10 px-2.5 py-1 text-[10.5px] font-semibold text-wa-green">
+          {actionLabel}
+        </span>
+      ) : (
         <span
-          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${
-            value ? 'left-[18px]' : 'left-0.5'
+          className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
+            value ? 'bg-wa-green' : 'bg-white/15'
           }`}
-        />
-      </span>
+        >
+          <span
+            className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${
+              value ? 'left-[18px]' : 'left-0.5'
+            }`}
+          />
+        </span>
+      )}
     </button>
   )
 }
@@ -107,6 +115,8 @@ export default function ProfileModal({
   const [tab, setTab] = useState(initialTab)
   const [name, setName] = useState(currentName || '')
   const [username, setUsername] = useState(currentUsername || '')
+  const [showQr, setShowQr] = useState(false)
+  const [qrUrl, setQrUrl] = useState('')
   const [bio, setBio] = useState(currentBio || '')
   const [color, setColor] = useState(currentColor || '#7c5cff')
   const [preview, setPreview] = useState('')
@@ -124,6 +134,18 @@ export default function ProfileModal({
   const fileRef = useRef(null)
 
   const displayAvatar = removed ? '' : preview || currentAvatarUrl || ''
+
+  useEffect(() => {
+    let active = true
+    makeQrDataUrl(currentUsername || user.email.split('@')[0])
+      .then((url) => {
+        if (active) setQrUrl(url)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [currentUsername, user.email])
 
   const pickFile = (event) => {
     const file = event.target.files?.[0]
@@ -522,6 +544,13 @@ export default function ProfileModal({
 
               <div className="divide-y divide-white/[0.06] overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02]">
                 <SettingRow
+                  icon={QrCode}
+                  title="Show my QR code"
+                  description="Others can scan it to start a chat with you"
+                  actionLabel="Open"
+                  onToggle={() => setShowQr(true)}
+                />
+                <SettingRow
                   icon={theme === 'dark' ? Sun : Moon}
                   title="Light theme"
                   description="Switch between dark and light appearance"
@@ -591,6 +620,45 @@ export default function ProfileModal({
           )}
         </div>
       </div>
+
+      {showQr && (
+        <div
+          className="animate-fade-in fixed inset-0 z-[150] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md"
+          onClick={() => setShowQr(false)}
+          role="presentation"
+        >
+          <div
+            className="glass-strong animate-pop-in w-full max-w-xs rounded-3xl p-6 text-center"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="My QR code"
+          >
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowQr(false)}
+                className="icon-btn"
+                aria-label="Close QR code"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <h2 className="text-[16px] font-semibold">My QR code</h2>
+            <p className="mt-1 text-[11px] text-wa-muted">Scan this to start a chat with me</p>
+            <div className="mx-auto mt-4 w-fit rounded-3xl bg-white p-4 shadow-xl">
+              <img
+                src={qrUrl}
+                alt="My QR code"
+                className="h-64 w-64"
+              />
+            </div>
+            <p className="mt-4 text-[13px] font-medium text-wa-green">
+              {currentUsername ? `@${currentUsername}` : user.email}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

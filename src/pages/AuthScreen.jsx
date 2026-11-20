@@ -308,24 +308,26 @@ export default function AuthScreen() {
                 )}
 
                 {isSignup && (
-                  <div className="group relative">
-                    <AtSign
-                      size={16}
-                      className="pointer-events-none absolute left-3.5 top-1/2 z-10 -translate-y-1/2 text-wa-muted transition-colors group-focus-within:text-wa-green"
-                    />
-                    <input
-                      id="auth-username"
-                      name="username"
-                      autoComplete="username"
-                      autoCapitalize="none"
-                      spellCheck={false}
-                      required
-                      value={username}
-                      onChange={(event) => setUsername(event.target.value)}
-                      placeholder="Username"
-                      aria-label="Username"
-                      className="input-luxe pl-10"
-                    />
+                  <div className="group">
+                    <div className="relative">
+                      <AtSign
+                        size={16}
+                        className="pointer-events-none absolute left-3.5 top-1/2 z-10 -translate-y-1/2 text-wa-muted transition-colors group-focus-within:text-wa-green"
+                      />
+                      <input
+                        id="auth-username"
+                        name="username"
+                        autoComplete="username"
+                        autoCapitalize="none"
+                        spellCheck={false}
+                        required
+                        value={username}
+                        onChange={(event) => setUsername(event.target.value)}
+                        placeholder="Username"
+                        aria-label="Username"
+                        className="input-luxe pl-10"
+                      />
+                    </div>
                     <span className="mt-1 block text-[10px] leading-relaxed text-wa-muted">
                       3-20 characters · letters, numbers, . or _ · no spaces
                     </span>

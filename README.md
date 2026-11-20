@@ -19,7 +19,6 @@ A polished, real-time chat application built with React, Vite, Tailwind CSS and 
 - **Attachments** — image uploads (up to 5 MB) and file uploads (up to 25 MB) via Supabase Storage, with captions and file details.
 - **Message actions** — edit, delete (for you / for everyone), star, forward, pin and archive.
 - **Disappearing messages** — per-chat setting for **Off**, **24 hours** (auto-hide one day after sending) or **After viewing** (a message disappears as soon as it is seen). The setting applies to new messages.
-- **Stories / status** — share a text status with a background colour or a photo; statuses disappear after 24 hours, show view counts to the owner and appear as circles above the chat list.
 - **Profiles** — display name, avatar colour, uploaded avatar photo and a bio/about section.
 - **Calls** — free peer-to-peer 1:1 voice and video calls using WebRTC, with Supabase Realtime as the signaling layer, mute controls and call states.
 - **Notifications** — optional notification sounds and browser desktop notifications.
@@ -74,7 +73,6 @@ Create a Supabase project, then open **SQL Editor** and run the SQL files in `su
 | `schema11.sql` | Disappearing messages columns and per-chat timer policy |
 | `schema12.sql` | Username column and signup trigger update |
 | `schema13.sql` | Safer update grants, disappearing-timer RPC, message edit guard and unique usernames |
-| `schema15.sql` | Stories/status table, views, storage bucket and Realtime |
 
 Each migration is idempotent where possible (`if not exists` / `drop policy if exists`), so re-running one is safe. Make sure email/password sign-in is enabled in **Authentication → Providers**.
 
@@ -105,7 +103,7 @@ src/
 ├── App.jsx         App shell, chat state and all message actions
 ├── index.css       Tailwind theme and global styles
 └── main.jsx        React entry point
-supabase/           SQL migrations (schema.sql → schema15.sql)
+supabase/           SQL migrations (schema.sql → schema13.sql)
 public/             Logo, favicon and icons
 docs/               Screenshots used in this README
 ```

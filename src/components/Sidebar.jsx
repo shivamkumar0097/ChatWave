@@ -14,7 +14,6 @@ import {
   Users,
 } from 'lucide-react'
 import ChatListItem from '@/components/ChatListItem'
-import StoryTray from '@/components/StoryTray'
 
 export default function Sidebar({
   chats,
@@ -27,11 +26,6 @@ export default function Sidebar({
   onSettings,
   soundOn = true,
   onToggleSound,
-  userId,
-  stories = [],
-  storiesLoading = false,
-  onStoryCreate,
-  onStoryOpen,
   loading = false,
   pinnedIds,
   archivedIds,
@@ -231,14 +225,6 @@ export default function Sidebar({
           )}
         </div>
       </header>
-
-      <StoryTray
-        groups={stories}
-        myUserId={userId}
-        loading={storiesLoading}
-        onCreate={onStoryCreate}
-        onOpen={onStoryOpen}
-      />
 
       <div className="animate-fade-up px-3 pb-3" style={{ animationDelay: '80ms' }}>
         <div className="group flex items-center gap-2.5 rounded-full border border-white/[0.06] bg-white/[0.035] px-4 py-2 transition-all duration-200 focus-within:border-wa-green/50 focus-within:bg-white/[0.05] focus-within:shadow-[0_0_0_4px_rgba(124,92,255,0.13)]">

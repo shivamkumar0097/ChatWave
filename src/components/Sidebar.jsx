@@ -227,7 +227,7 @@ export default function Sidebar({
       </header>
 
       <div className="animate-fade-up px-3 pb-3" style={{ animationDelay: '80ms' }}>
-        <div className="group flex items-center gap-2.5 rounded-full border border-white/[0.06] bg-white/[0.035] px-4 py-2 transition-all duration-200 focus-within:border-wa-green/50 focus-within:bg-white/[0.05] focus-within:shadow-[0_0_0_4px_rgba(124,92,255,0.13)]">
+        <div className="group flex items-center gap-2.5 rounded-full border border-white/[0.06] bg-white/[0.035] px-4 py-2 transition-all duration-200 focus-within:scale-[1.01] focus-within:border-wa-green/60 focus-within:bg-white/[0.06] focus-within:shadow-[0_0_0_5px_rgba(124,92,255,0.16)]">
           <Search
             size={16}
             className="shrink-0 text-wa-muted transition-colors group-focus-within:text-wa-green"

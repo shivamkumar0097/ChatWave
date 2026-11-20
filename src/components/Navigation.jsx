@@ -29,7 +29,7 @@ export function TabPlaceholder({ tab }) {
   if (!meta) return null
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col items-center justify-center gap-3 bg-wa-bg px-6 text-center">
+    <section className="tab-fade flex min-w-0 flex-1 flex-col items-center justify-center gap-3 bg-wa-bg px-6 text-center">
       <div className="grid h-16 w-16 place-items-center rounded-2xl border border-white/[0.07] bg-white/[0.04] text-wa-green">
         <Icon size={26} />
       </div>

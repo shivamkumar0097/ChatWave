@@ -30,7 +30,7 @@ const durationLabel = (seconds) => {
   return `${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`
 }
 
-function CallRow({ entry, onRemove, menuOpen, onLongPress, onCloseMenu }) {
+function CallRow({ entry, menuOpen, onLongPress, onCloseMenu, index = 0, removing = false, onRequestRemove }) {
   const timerRef = useRef(null)
   const missed = entry.status === 'missed' || entry.status === 'no_answer'
   const outgoing = entry.direction === 'outgoing'
@@ -53,7 +53,10 @@ function CallRow({ entry, onRemove, menuOpen, onLongPress, onCloseMenu }) {
         event.preventDefault()
         onLongPress(entry.id)
       }}
-      className="relative flex select-none items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors hover:bg-white/[0.04]"
+      style={{ animationDelay: `${Math.min(index, 10) * 35}ms` }}
+      className={`animate-fade-up relative flex select-none items-center gap-3 rounded-2xl px-3 py-2.5 transition-all duration-200 hover:bg-white/[0.04] ${
+        removing ? '-translate-x-6 opacity-0' : ''
+      }`}
     >
       <div className="relative">
         <Avatar
@@ -89,7 +92,7 @@ function CallRow({ entry, onRemove, menuOpen, onLongPress, onCloseMenu }) {
             <button
               type="button"
               onClick={() => {
-                onRemove(entry.id)
+                onRequestRemove(entry.id)
                 onCloseMenu()
               }}
               className="flex w-full items-center gap-2 px-4 py-2.5 text-[12px] text-red-300 transition-colors hover:bg-red-500/10"
@@ -106,6 +109,15 @@ function CallRow({ entry, onRemove, menuOpen, onLongPress, onCloseMenu }) {
 
 export default function CallsPanel({ history, onRemove }) {
   const [menuFor, setMenuFor] = useState(null)
+  const [removingId, setRemovingId] = useState(null)
+
+  const requestRemove = (id) => {
+    setRemovingId(id)
+    window.setTimeout(() => {
+      onRemove(id)
+      setRemovingId(null)
+    }, 200)
+  }
   const groups = []
   for (const entry of history) {
     const label = dayLabel(entry.startedAt)
@@ -115,7 +127,7 @@ export default function CallsPanel({ history, onRemove }) {
   }
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col bg-wa-bg">
+    <section className="tab-fade flex min-w-0 flex-1 flex-col bg-wa-bg">
       <header className="flex items-center justify-between border-b border-wa-border px-4 py-4">
         <h2 className="text-[16px] font-semibold tracking-tight">Recent calls</h2>
         <span className="text-[11px] text-wa-muted">{history.length} calls</span>
@@ -139,11 +151,13 @@ export default function CallsPanel({ history, onRemove }) {
                 {group.label}
               </p>
               <div className="space-y-0.5">
-                {group.items.map((entry) => (
+                {group.items.map((entry, rowIndex) => (
                   <CallRow
                     key={entry.id}
                     entry={entry}
-                    onRemove={onRemove}
+                    index={rowIndex}
+                    onRequestRemove={requestRemove}
+                    removing={removingId === entry.id}
                     menuOpen={menuFor === entry.id}
                     onLongPress={setMenuFor}
                     onCloseMenu={() => setMenuFor(null)}

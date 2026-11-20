@@ -164,7 +164,11 @@ export default function MessageBubble({
         <Clock size={10} className="opacity-80" />
       )}
       {message.time}
-      {statusIcon}
+      {statusIcon && (
+        <span key={message.status} className="animate-pop-in">
+          {statusIcon}
+        </span>
+      )}
       {starred && <Star size={10} className="fill-current opacity-80" />}
     </span>
   )
@@ -349,7 +353,7 @@ export default function MessageBubble({
   return (
     <div
       id={`message-${message.id}`}
-      className={`bubble-in flex scroll-mt-24 ${mine ? 'justify-end' : 'justify-start'}`}
+      className={`bubble-in flex scroll-mt-24 ${mine ? 'msg-send justify-end' : 'justify-start'}`}
     >
       <div className={`relative flex w-full items-center gap-1 ${mine ? 'justify-end' : 'justify-start'}`}>
         <div

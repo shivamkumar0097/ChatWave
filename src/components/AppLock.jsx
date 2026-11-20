@@ -9,10 +9,13 @@ export default function AppLock({ mode = 'verify', expectedPin, onSuccess, onCan
   const [step, setStep] = useState(mode === 'set' ? 'enter' : 'verify')
   const [error, setError] = useState('')
   const [forgotConfirm, setForgotConfirm] = useState(false)
+  const [pressed, setPressed] = useState(null)
 
   const current = step === 'confirm' ? confirm : pin
 
-  const press = (key) => {
+  const press = (key, index) => {
+    setPressed(index)
+    setTimeout(() => setPressed(null), 220)
     setError('')
     if (key === 'back') {
       if (step === 'confirm') setConfirm((value) => value.slice(0, -1))
@@ -57,12 +60,22 @@ export default function AppLock({ mode = 'verify', expectedPin, onSuccess, onCan
         style={{ animationDelay: '-6s' }}
       />
 
-      <div className="relative flex w-full max-w-xs flex-col items-center rounded-[32px] border border-white/10 bg-white/[0.055] px-6 py-8 shadow-[0_35px_90px_-25px_rgba(0,0,0,0.95)] backdrop-blur-2xl">
-        <div className="ring-gradient mb-6 grid h-16 w-16 place-items-center rounded-2xl shadow-[0_18px_45px_-16px_rgba(124,92,255,0.9)]">
-          <LockKeyhole size={27} className="text-white" />
+      <div className="relative flex w-full max-w-[340px] flex-col items-center overflow-hidden rounded-[36px] border border-white/[0.12] bg-white/[0.07] px-7 py-9 shadow-[0_40px_100px_-25px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-3xl">
+        <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+        <span className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full bg-[#7c5cff]/25 blur-3xl" />
+        <span className="pointer-events-none absolute -bottom-16 -left-12 h-40 w-40 rounded-full bg-[#22d3ee]/20 blur-3xl" />
+
+        <p className="gradient-text relative text-[11px] font-bold uppercase tracking-[0.32em]">
+          ChatWave
+        </p>
+
+        <div className="ring-gradient relative mb-6 mt-5 grid h-[72px] w-[72px] place-items-center rounded-[24px] shadow-[0_22px_55px_-16px_rgba(124,92,255,0.95)]">
+          <div className="grid h-full w-full place-items-center rounded-[23px] bg-black/25 backdrop-blur-xl">
+            <LockKeyhole size={30} className="text-white" />
+          </div>
         </div>
 
-        <h2 className="text-[18px] font-semibold text-wa-text">
+        <h2 className="relative text-[19px] font-semibold tracking-tight text-wa-text">
           {mode === 'set'
             ? step === 'confirm'
               ? 'Confirm PIN'
@@ -71,7 +84,7 @@ export default function AppLock({ mode = 'verify', expectedPin, onSuccess, onCan
               ? 'Disable screen lock'
               : 'Unlock ChatWave'}
         </h2>
-        <p className="mt-1 text-center text-[12px] text-wa-muted">
+        <p className="relative mt-1.5 text-center text-[12px] text-wa-muted">
           {mode === 'set'
             ? 'Choose a 4-digit PIN to lock the app'
             : mode === 'disable'
@@ -79,11 +92,11 @@ export default function AppLock({ mode = 'verify', expectedPin, onSuccess, onCan
               : 'Enter your 4-digit PIN to continue'}
         </p>
 
-        <div className="mt-7 flex gap-3 rounded-full border border-white/10 bg-white/[0.05] px-5 py-3 backdrop-blur-xl">
+        <div className="relative mt-7 flex gap-4 rounded-full border border-white/[0.12] bg-white/[0.06] px-6 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl">
           {[0, 1, 2, 3].map((index) => (
             <span
               key={index}
-              className={`h-3.5 w-3.5 rounded-full border transition-all duration-200 ${
+              className={`h-4 w-4 rounded-full border transition-all duration-300 ${
                 current.length > index
                   ? 'scale-110 border-wa-green bg-wa-green shadow-[0_0_12px_rgba(124,92,255,0.8)]'
                   : 'border-white/25 bg-transparent'
@@ -94,7 +107,7 @@ export default function AppLock({ mode = 'verify', expectedPin, onSuccess, onCan
 
         {error && <p className="mt-4 text-[11.5px] text-red-300">{error}</p>}
 
-        <div className="mt-8 grid w-full grid-cols-3 gap-3">
+        <div className="relative mt-8 grid w-full grid-cols-3 gap-3">
           {KEYPAD.map((key, index) =>
             key === '' ? (
               <span key={index} />
@@ -102,8 +115,10 @@ export default function AppLock({ mode = 'verify', expectedPin, onSuccess, onCan
               <button
                 key={index}
                 type="button"
-                onClick={() => press(key)}
-                className="grid h-14 place-items-center rounded-2xl border border-white/10 bg-white/[0.06] text-[18px] font-medium text-wa-text shadow-[0_12px_30px_-18px_rgba(0,0,0,0.9)] backdrop-blur-xl transition-all active:scale-95 active:bg-white/[0.14]"
+                onClick={() => press(key, index)}
+                className={`grid h-14 place-items-center rounded-[18px] border border-white/[0.1] bg-white/[0.07] text-[19px] font-medium text-wa-text shadow-[0_14px_34px_-20px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-xl transition-all duration-200 hover:border-white/20 hover:bg-white/[0.12] active:bg-white/[0.18] ${
+                  pressed === index ? 'pin-key-pop' : ''
+                }`}
               >
                 {key === 'back' ? <Delete size={20} /> : key}
               </button>

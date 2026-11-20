@@ -125,6 +125,9 @@ export default function ChatWindow({
   contacts = [],
   onAddMember,
   onRemoveMember,
+  onRenameGroup,
+  onTransferAdmin,
+  onDeleteGroup,
   className = '',
 }) {
   const scrollRef = useRef(null)
@@ -989,6 +992,9 @@ export default function ChatWindow({
             onClose={() => setMembersOpen(false)}
             onAdd={onAddMember}
             onRemove={onRemoveMember}
+            onRename={onRenameGroup}
+            onTransfer={onTransferAdmin}
+            onDelete={onDeleteGroup}
             onLeave={() => {
               setMembersOpen(false)
               onRemoveMember?.(user?.id)

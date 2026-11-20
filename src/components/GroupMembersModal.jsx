@@ -1,4 +1,4 @@
-import { LogOut, Search, Trash2, UserPlus, Users, X } from 'lucide-react'
+import { Check, Crown, LogOut, Pencil, Search, Trash2, UserPlus, Users, X } from 'lucide-react'
 import { useState } from 'react'
 import Avatar from '@/components/Avatar'
 
@@ -9,10 +9,17 @@ export default function GroupMembersModal({
   onClose,
   onAdd,
   onRemove,
+  onRename,
+  onTransfer,
+  onDelete,
   onLeave,
 }) {
   const [query, setQuery] = useState('')
   const [busyId, setBusyId] = useState(null)
+  const [renaming, setRenaming] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [pendingTransferId, setPendingTransferId] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const members = chat.members || []
   const memberIds = chat.memberIds ?? members.map((member) => member.id)
@@ -25,6 +32,14 @@ export default function GroupMembersModal({
     setBusyId(id)
     await action(id)
     setBusyId(null)
+  }
+
+  const saveRename = async () => {
+    if (!newName.trim() || busyId) return
+    setBusyId('rename')
+    const ok = await onRename?.(newName.trim())
+    setBusyId(null)
+    if (ok) setRenaming(false)
   }
 
   return (
@@ -54,6 +69,56 @@ export default function GroupMembersModal({
             <X size={18} />
           </button>
         </div>
+
+        {isAdmin && (
+          <div className="border-b border-white/[0.06] px-4 py-2.5">
+            {renaming ? (
+              <div className="flex items-center gap-2">
+                <input
+                  autoFocus
+                  maxLength={60}
+                  value={newName}
+                  onChange={(event) => setNewName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') saveRename()
+                    if (event.key === 'Escape') setRenaming(false)
+                  }}
+                  placeholder="Group name"
+                  className="min-w-0 flex-1 rounded-xl border border-wa-green/40 bg-white/[0.04] px-3 py-2 text-[12.5px] outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={saveRename}
+                  disabled={Boolean(busyId) || !newName.trim()}
+                  className="grid h-9 w-9 place-items-center rounded-xl bg-wa-green text-white disabled:opacity-40"
+                  aria-label="Save group name"
+                >
+                  <Check size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRenaming(false)}
+                  className="icon-btn"
+                  aria-label="Cancel rename"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setNewName(chat.name)
+                  setRenaming(true)
+                }}
+                className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-[12px] text-wa-text transition-colors hover:bg-white/[0.05]"
+              >
+                <Pencil size={14} className="text-wa-green" />
+                Rename group
+              </button>
+            )}
+          </div>
+        )}
 
         {isAdmin && (
           <div className="border-b border-white/[0.06] px-4 py-3">
@@ -128,21 +193,83 @@ export default function GroupMembersModal({
                 </span>
               </span>
               {isAdmin && chat.createdBy !== member.id && (
-                <button
-                  type="button"
-                  disabled={Boolean(busyId)}
-                  onClick={() => run(member.id, onRemove)}
-                  className="icon-btn text-red-300 hover:bg-red-500/10 disabled:opacity-50"
-                  aria-label={`Remove ${member.name}`}
-                >
-                  <Trash2 size={15} />
-                </button>
+                <>
+                  {pendingTransferId === member.id ? (
+                    <button
+                      type="button"
+                      disabled={Boolean(busyId)}
+                      onClick={() =>
+                        run(member.id, async (id) => {
+                          const ok = await onTransfer?.(id)
+                          if (ok) setPendingTransferId(null)
+                        })
+                      }
+                      className="rounded-lg bg-wa-green/15 px-2 py-1 text-[10px] font-semibold text-wa-green disabled:opacity-50"
+                    >
+                      Confirm
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={Boolean(busyId)}
+                      onClick={() => setPendingTransferId(member.id)}
+                      className="icon-btn text-amber-300 hover:bg-amber-400/10 disabled:opacity-50"
+                      aria-label={`Make ${member.name} admin`}
+                      title="Transfer admin"
+                    >
+                      <Crown size={15} />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    disabled={Boolean(busyId)}
+                    onClick={() => run(member.id, onRemove)}
+                    className="icon-btn text-red-300 hover:bg-red-500/10 disabled:opacity-50"
+                    aria-label={`Remove ${member.name}`}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </>
               )}
             </div>
           ))}
         </div>
 
-        {!isAdmin && (
+        {isAdmin ? (
+          <div className="border-t border-white/[0.07] p-3">
+            {confirmDelete ? (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={Boolean(busyId)}
+                  onClick={() => run('delete', async () => { await onDelete?.() })}
+                  className="flex-1 rounded-xl bg-red-500/20 py-2.5 text-[12px] font-semibold text-red-200 transition-colors hover:bg-red-500/30 disabled:opacity-50"
+                >
+                  Confirm delete
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(false)}
+                  className="rounded-xl border border-white/10 px-4 py-2.5 text-[12px] text-wa-muted"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-400/25 bg-red-500/10 py-2.5 text-[12.5px] font-semibold text-red-300 transition-colors hover:bg-red-500/20"
+              >
+                <Trash2 size={15} />
+                Delete group
+              </button>
+            )}
+            <p className="mt-2 text-center text-[10px] text-wa-muted">
+              Transfer admin rights before leaving the group.
+            </p>
+          </div>
+        ) : (
           <div className="border-t border-white/[0.07] p-3">
             <button
               type="button"

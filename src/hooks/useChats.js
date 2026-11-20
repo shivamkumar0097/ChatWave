@@ -512,6 +512,35 @@ export function useChats(user, activeId) {
           load()
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'conversations' },
+        (payload) => {
+          const row = payload.new
+          if (!row?.id) return
+          setChats((prev) =>
+            prev.map((chat) =>
+              chat.id === row.id
+                ? {
+                    ...chat,
+                    name: row.title || chat.name,
+                    createdBy: row.created_by || chat.createdBy,
+                    isGroup: row.is_group ?? chat.isGroup,
+                  }
+                : chat
+            )
+          )
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'conversations' },
+        (payload) => {
+          const id = payload.old?.id
+          if (!id) return
+          setChats((prev) => prev.filter((chat) => chat.id !== id))
+        }
+      )
       .subscribe()
 
     return () => {
@@ -823,6 +852,47 @@ export function useChats(user, activeId) {
     [load, user]
   )
 
+  const renameGroup = useCallback(
+    async (conversationId, name) => {
+      if (!user || !conversationId) return false
+      const title = String(name || '').trim()
+      if (!title || title.length > 60) return false
+      const { error } = await supabase
+        .from('conversations')
+        .update({ title })
+        .eq('id', conversationId)
+      if (error) return false
+      await load()
+      return true
+    },
+    [load, user]
+  )
+
+  const transferGroupAdmin = useCallback(
+    async (conversationId, newAdminId) => {
+      if (!user || !conversationId || !newAdminId || newAdminId === user.id) return false
+      const { error } = await supabase
+        .from('conversations')
+        .update({ created_by: newAdminId })
+        .eq('id', conversationId)
+      if (error) return false
+      await load()
+      return true
+    },
+    [load, user]
+  )
+
+  const deleteGroup = useCallback(
+    async (conversationId) => {
+      if (!user || !conversationId) return false
+      const { error } = await supabase.from('conversations').delete().eq('id', conversationId)
+      if (error) return false
+      setChats((prev) => prev.filter((chat) => chat.id !== conversationId))
+      return true
+    },
+    [user]
+  )
+
   return {
     chats,
     contacts,
@@ -833,6 +903,9 @@ export function useChats(user, activeId) {
     startGroupChat,
     addGroupMember,
     removeGroupMember,
+    renameGroup,
+    transferGroupAdmin,
+    deleteGroup,
     markRead,
     reactToMessage,
     editMessage,

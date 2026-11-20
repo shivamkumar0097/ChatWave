@@ -128,6 +128,9 @@ function ChatApp() {
     startGroupChat,
     addGroupMember,
     removeGroupMember,
+    renameGroup,
+    transferGroupAdmin,
+    deleteGroup,
     markRead,
     reactToMessage,
     editMessage,
@@ -387,6 +390,31 @@ function ChatApp() {
     return ok
   }
 
+  const handleRenameGroup = async (name) => {
+    if (!activeId) return false
+    const ok = await renameGroup(activeId, name)
+    if (!ok) showToast('Could not rename the group.')
+    return ok
+  }
+
+  const handleTransferAdmin = async (memberId) => {
+    if (!activeId) return false
+    const ok = await transferGroupAdmin(activeId, memberId)
+    if (!ok) showToast('Could not transfer admin rights.')
+    return ok
+  }
+
+  const handleDeleteGroup = async () => {
+    if (!activeId) return false
+    const ok = await deleteGroup(activeId)
+    if (!ok) showToast('Could not delete the group.')
+    else {
+      setActiveId(null)
+      setMobileChatOpen(false)
+    }
+    return ok
+  }
+
   return (
     <div className="flex h-full overflow-hidden bg-wa-bg">
       <Sidebar
@@ -426,6 +454,9 @@ function ChatApp() {
         contacts={contacts}
         onAddMember={handleAddMember}
         onRemoveMember={handleRemoveMember}
+        onRenameGroup={handleRenameGroup}
+        onTransferAdmin={handleTransferAdmin}
+        onDeleteGroup={handleDeleteGroup}
         unreadAnchorId={
           unreadAnchor && activeChat && unreadAnchor.chatId === activeChat.id
             ? unreadAnchor.messageId

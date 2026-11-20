@@ -45,6 +45,8 @@ export default function Navigation({ active, onChange, mobile = false }) {
   const timerRef = useRef(null)
   const draggingRef = useRef(false)
   const suppressClickRef = useRef(false)
+  const startRef = useRef({ x: 0, y: 0 })
+  const dragStartRef = useRef(0)
   const [layouts, setLayouts] = useState([])
   const [dragIndex, setDragIndex] = useState(null)
   const activeIndex = Math.max(0, TABS.findIndex((tab) => tab.key === active))
@@ -98,14 +100,23 @@ export default function Navigation({ active, onChange, mobile = false }) {
       event.currentTarget.setPointerCapture(event.pointerId)
     } catch {}
     draggingRef.current = false
+    dragStartRef.current = index
+    startRef.current = { x: event.clientX, y: event.clientY }
     timerRef.current = window.setTimeout(() => {
       draggingRef.current = true
       setDragIndex(index)
-    }, 260)
+    }, 220)
   }
 
   const pointerMove = (event) => {
-    if (!draggingRef.current) return
+    if (!draggingRef.current) {
+      const dx = event.clientX - startRef.current.x
+      const dy = event.clientY - startRef.current.y
+      if (Math.hypot(dx, dy) < 10) return
+      if (timerRef.current) window.clearTimeout(timerRef.current)
+      draggingRef.current = true
+      setDragIndex(dragStartRef.current)
+    }
     setDragIndex(nearestIndex(event.clientX, event.clientY))
   }
 
@@ -143,7 +154,7 @@ export default function Navigation({ active, onChange, mobile = false }) {
     return (
       <nav
         ref={navRef}
-        className="animate-fade-up fixed inset-x-0 bottom-0 z-40 flex h-16 items-center justify-around border-t border-wa-border bg-wa-bg/95 backdrop-blur-xl md:hidden"
+        className="animate-fade-up fixed inset-x-0 bottom-0 z-40 flex h-16 touch-none items-center justify-around border-t border-wa-border bg-wa-bg/95 backdrop-blur-xl md:hidden"
       >
         {indicator}
         {TABS.map((tab, index) => {

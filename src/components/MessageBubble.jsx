@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import {
   Check,
   CheckCheck,
+  Clock,
   Copy,
   CornerUpLeft,
   FileText,
@@ -155,6 +156,9 @@ export default function MessageBubble({
       }`}
     >
       {message.edited && !message.deleted && <span className="opacity-80">edited</span>}
+      {(message.expiresAt || message.viewOnce) && !message.deleted && (
+        <Clock size={10} className="opacity-80" />
+      )}
       {message.time}
       {statusIcon}
       {starred && <Star size={10} className="fill-current opacity-80" />}

@@ -74,6 +74,13 @@ const groupReactions = (raw) => {
   return Object.entries(grouped).map(([emoji, count]) => ({ emoji, count }))
 }
 
+const TIMERS = ['off', '24h', 'view_once']
+
+const normalizeTimer = (value) => (TIMERS.includes(value) ? value : 'off')
+
+const isMessageExpired = (message) =>
+  Boolean(message.expiresAt && new Date(message.expiresAt) <= new Date())
+
 const hiddenKey = (userId) => `cw-hidden:${userId}`
 
 const readHidden = (userId) => {
@@ -120,6 +127,10 @@ const mapMessage = (row, myId, readContext = {}) => {
     forwarded: Boolean(row.forwarded),
     edited: Boolean(row.edited_at),
     deleted,
+    expiresAt: row.expires_at || null,
+    viewOnce: Boolean(row.view_once),
+    viewedBy:
+      row.viewed_by && typeof row.viewed_by === 'object' ? row.viewed_by : {},
     status: mine ? statusFor(row.created_at, myId, memberIds, isGroup, readMap) : undefined,
   }
 }
@@ -161,7 +172,7 @@ export function useChats(user, activeId) {
       fetchProfiles(),
       supabase
         .from('conversation_members')
-        .select('conversation_id, conversations(id, is_group, title, created_by)')
+        .select('conversation_id, conversations(id, is_group, title, created_by, disappearing_timer)')
         .eq('user_id', user.id),
     ])
 
@@ -189,27 +200,24 @@ export function useChats(user, activeId) {
 
     if (ids.length) {
       const baseSelect = 'id, conversation_id, sender_id, content, image_url, created_at'
-      const fullSelect = `${baseSelect}, reply_to, reactions, forwarded, edited_at, deleted_for_all, file_url, file_name, file_type, file_size`
+      const midSelect = `${baseSelect}, reply_to, reactions, forwarded, edited_at, deleted_for_all, file_url, file_name, file_type, file_size`
+      const fullSelect = `${midSelect}, expires_at, view_once, viewed_by`
 
       const fetchMessages = async () => {
-        const attempt = await supabase
-          .from('messages')
-          .select(fullSelect)
-          .in('conversation_id', ids)
-          .order('created_at', { ascending: true })
-          .limit(1000)
-
-        if (attempt.error) {
-          // columns not migrated yet (schema6.sql not applied) — fall back to base columns
-          const fallback = await supabase
+        const query = (select) =>
+          supabase
             .from('messages')
-            .select(baseSelect)
+            .select(select)
             .in('conversation_id', ids)
             .order('created_at', { ascending: true })
             .limit(1000)
-          return fallback.data ?? []
-        }
-        return attempt.data ?? []
+
+        const attempt = await query(fullSelect)
+        if (!attempt.error) return attempt.data ?? []
+        const midAttempt = await query(midSelect)
+        if (!midAttempt.error) return midAttempt.data ?? []
+        const fallback = await query(baseSelect)
+        return fallback.data ?? []
       }
 
       const fetchMembers = async () => {
@@ -266,6 +274,7 @@ export function useChats(user, activeId) {
       const messages = messageRows
         .filter((row) => row.conversation_id === conversation.id && !hidden.has(row.id))
         .map((row) => mapMessage(row, user.id, readContext))
+        .filter((message) => !isMessageExpired(message))
       const unread = messages.filter(
         (message) =>
           message.from === 'them' &&
@@ -280,6 +289,7 @@ export function useChats(user, activeId) {
         bio: isGroup ? '' : other?.bio || '',
         isGroup,
         createdBy: conversation.created_by || null,
+        disappearingTimer: normalizeTimer(conversation.disappearing_timer),
         members,
         memberIds,
         lastSeen: other?.last_seen ?? null,
@@ -309,6 +319,18 @@ export function useChats(user, activeId) {
   }, [load])
 
   useEffect(() => {
+    const timer = window.setInterval(() => {
+      setChats((prev) =>
+        prev.map((chat) => ({
+          ...chat,
+          messages: chat.messages.filter((message) => !isMessageExpired(message)),
+        }))
+      )
+    }, 60000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
     if (!user) return undefined
 
     const channel = supabase
@@ -322,15 +344,26 @@ export function useChats(user, activeId) {
           let known = false
 
           if (row.sender_id !== user.id && (!isActive || document.hidden)) {
-            const preview = row.deleted_for_all
-              ? 'Message deleted'
-              : row.content ||
-                (row.image_url ? 'Photo' : row.file_url ? row.file_name || 'Attachment' : 'New message')
+            const preview = row.view_once
+              ? 'View once message'
+              : row.deleted_for_all
+                ? 'Message deleted'
+                : row.content ||
+                  (row.image_url ? 'Photo' : row.file_url ? row.file_name || 'Attachment' : 'New message')
             window.dispatchEvent(
               new CustomEvent('chatwave:incoming', {
                 detail: { conversationId: row.conversation_id, body: preview },
               })
             )
+          }
+
+          if (row.view_once && isActive && row.sender_id !== user.id) {
+            const now = new Date().toISOString()
+            supabase
+              .from('messages')
+              .update({ expires_at: now, viewed_by: { [user.id]: now } })
+              .eq('id', row.id)
+              .then(() => {})
           }
 
           if (row.sender_id !== user.id && isActive && readReceiptsEnabled()) {
@@ -352,13 +385,17 @@ export function useChats(user, activeId) {
               if (chat.id !== row.conversation_id) return chat
               known = true
               if (chat.messages.some((message) => message.id === row.id)) return chat
+              if (row.view_once && isActive && row.sender_id !== user.id) return chat
+              const next = mapMessage(row, user.id, readContextOf(chat))
               return {
                 ...chat,
                 lastTime: timeOf(row.created_at),
                 myReadAt: isActive ? row.created_at : chat.myReadAt,
                 unread:
-                  row.sender_id !== user.id && !isActive ? chat.unread + 1 : chat.unread,
-                messages: [...chat.messages, mapMessage(row, user.id, readContextOf(chat))],
+                  row.sender_id !== user.id && !isActive && !isMessageExpired(next)
+                    ? chat.unread + 1
+                    : chat.unread,
+                messages: isMessageExpired(next) ? chat.messages : [...chat.messages, next],
               }
             })
           )
@@ -378,11 +415,11 @@ export function useChats(user, activeId) {
               if (chat.id !== row.conversation_id) return chat
               return {
                 ...chat,
-                messages: chat.messages.map((message) =>
-                  message.id === row.id
-                    ? mapMessage(row, user.id, readContextOf(chat))
-                    : message
-                ),
+                messages: chat.messages.flatMap((message) => {
+                  if (message.id !== row.id) return [message]
+                  const next = mapMessage(row, user.id, readContextOf(chat))
+                  return isMessageExpired(next) ? [] : [next]
+                }),
               }
             })
           )
@@ -526,6 +563,9 @@ export function useChats(user, activeId) {
                     name: row.title || chat.name,
                     createdBy: row.created_by || chat.createdBy,
                     isGroup: row.is_group ?? chat.isGroup,
+                    disappearingTimer: normalizeTimer(
+                      row.disappearing_timer ?? chat.disappearingTimer
+                    ),
                   }
                 : chat
             )
@@ -566,9 +606,21 @@ export function useChats(user, activeId) {
         row.file_type = options.fileType || null
         row.file_size = options.fileSize || null
       }
+      if (options.timer === '24h') {
+        row.expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      }
+      if (options.timer === 'view_once') row.view_once = true
+
+      const withoutTimerColumns = (source) => {
+        const next = { ...source }
+        delete next.expires_at
+        delete next.view_once
+        return next
+      }
+      const legacyRow = withoutTimerColumns(row)
 
       const fullColumns =
-        'id, conversation_id, sender_id, content, image_url, reply_to, reactions, forwarded, created_at, edited_at, deleted_for_all, file_url, file_name, file_type, file_size'
+        'id, conversation_id, sender_id, content, image_url, reply_to, reactions, forwarded, created_at, edited_at, deleted_for_all, file_url, file_name, file_type, file_size, expires_at, view_once, viewed_by'
       const midColumns =
         'id, conversation_id, sender_id, content, image_url, reply_to, reactions, forwarded, created_at'
       const baseColumns = 'id, conversation_id, sender_id, content, image_url, created_at'
@@ -582,7 +634,7 @@ export function useChats(user, activeId) {
 
       if (error && !options.fileUrl) {
         // schema8 not applied — retry without the new columns
-        const retry = await supabase.from('messages').insert(row).select(midColumns).single()
+        const retry = await supabase.from('messages').insert(legacyRow).select(midColumns).single()
         data = retry.data
         error = retry.error
       }
@@ -611,10 +663,11 @@ export function useChats(user, activeId) {
           prev.map((chat) => {
             if (chat.id !== conversationId) return chat
             if (chat.messages.some((message) => message.id === data.id)) return chat
+            const next = mapMessage(data, user.id, readContextOf(chat))
             return {
               ...chat,
               lastTime: timeOf(data.created_at),
-              messages: [...chat.messages, mapMessage(data, user.id, readContextOf(chat))],
+              messages: isMessageExpired(next) ? chat.messages : [...chat.messages, next],
             }
           })
         )
@@ -767,6 +820,36 @@ export function useChats(user, activeId) {
         )
       )
 
+      const { data: viewOnceRows, error: viewError } = await supabase
+        .from('messages')
+        .select('id, viewed_by')
+        .eq('conversation_id', conversationId)
+        .eq('view_once', true)
+        .neq('sender_id', user.id)
+        .is('expires_at', null)
+
+      if (!viewError && viewOnceRows?.length) {
+        const ids = viewOnceRows.map((row) => row.id)
+        await Promise.all(
+          viewOnceRows.map((row) =>
+            supabase
+              .from('messages')
+              .update({
+                expires_at: now,
+                viewed_by: { ...(row.viewed_by || {}), [user.id]: now },
+              })
+              .eq('id', row.id)
+          )
+        )
+        setChats((prev) =>
+          prev.map((chat) =>
+            chat.id === conversationId
+              ? { ...chat, messages: chat.messages.filter((message) => !ids.includes(message.id)) }
+              : chat
+          )
+        )
+      }
+
       if (readReceiptsEnabled()) {
         await supabase.from('conversation_reads').upsert(
           { conversation_id: conversationId, user_id: user.id, last_read_at: now },
@@ -893,6 +976,21 @@ export function useChats(user, activeId) {
     [user]
   )
 
+  const setDisappearingTimer = useCallback(
+    async (conversationId, timer) => {
+      if (!user || !conversationId) return false
+      const value = normalizeTimer(timer)
+      const { error } = await supabase
+        .from('conversations')
+        .update({ disappearing_timer: value })
+        .eq('id', conversationId)
+      if (error) return false
+      await load()
+      return true
+    },
+    [load, user]
+  )
+
   return {
     chats,
     contacts,
@@ -906,6 +1004,7 @@ export function useChats(user, activeId) {
     renameGroup,
     transferGroupAdmin,
     deleteGroup,
+    setDisappearingTimer,
     markRead,
     reactToMessage,
     editMessage,

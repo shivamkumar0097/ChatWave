@@ -12,7 +12,6 @@ import {
   UserRound,
   Users,
 } from 'lucide-react'
-import Avatar from '@/components/Avatar'
 import ChatListItem from '@/components/ChatListItem'
 
 export default function Sidebar({
@@ -26,7 +25,6 @@ export default function Sidebar({
   onSettings,
   soundOn = true,
   onToggleSound,
-  me,
   loading = false,
   pinnedIds,
   archivedIds,
@@ -126,23 +124,9 @@ export default function Sidebar({
       className={`h-full w-full min-w-0 flex-col border-r border-white/[0.06] bg-[#0a0c14]/85 backdrop-blur-2xl md:w-[390px] md:min-w-[340px] md:max-w-[420px] ${className}`}
     >
       <header className="animate-slide-down relative z-30 flex items-center justify-between px-4 pb-3 pt-4">
-        <button
-          type="button"
-          onClick={onProfile}
-          className="group flex min-w-0 items-center gap-3 rounded-2xl px-1 py-1 text-left transition-colors transition-transform duration-200 hover:scale-[1.02] hover:bg-white/[0.04]"
-          aria-label="Edit profile"
-        >
-          <Avatar name={me?.name || 'You'} src={me?.avatarUrl} color={me?.color} size="sm" ring />
-          <span className="min-w-0">
-            <span className="block truncate text-[15px] font-medium leading-tight">
-              {me?.name || 'You'}
-            </span>
-            <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-wa-muted">
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-2 shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
-              <span className="truncate">{me?.bio || 'online'}</span>
-            </span>
-          </span>
-        </button>
+        <h1 className="truncate text-[26px] font-bold tracking-tight">
+          <span className="gradient-text">ChatWave</span>
+        </h1>
 
         <div className="relative flex items-center gap-1" ref={menuRef}>
           <button

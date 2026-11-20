@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import Composer from '@/components/Composer'
+import DisappearingModal from '@/components/DisappearingModal'
 import GroupMembersModal from '@/components/GroupMembersModal'
 import MessageBubble from '@/components/MessageBubble'
 import PopoverMenu from '@/components/PopoverMenu'
@@ -129,6 +130,8 @@ export default function ChatWindow({
   onTransferAdmin,
   onDeleteGroup,
   onCall,
+  disappearingTimer = 'off',
+  onSetTimer,
   className = '',
 }) {
   const scrollRef = useRef(null)
@@ -140,6 +143,7 @@ export default function ChatWindow({
   const [menuOpen, setMenuOpen] = useState(false)
   const [infoOpen, setInfoOpen] = useState(false)
   const [membersOpen, setMembersOpen] = useState(false)
+  const [disappearingOpen, setDisappearingOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [starredOpen, setStarredOpen] = useState(false)
@@ -160,6 +164,7 @@ export default function ChatWindow({
     setMenuOpen(false)
     setInfoOpen(false)
     setMembersOpen(false)
+    setDisappearingOpen(false)
     setSearchOpen(false)
     setSearchQuery('')
     setStarredOpen(false)
@@ -379,6 +384,9 @@ export default function ChatWindow({
         <div className="min-w-0 flex-1">
           <h1 className="flex items-center gap-1.5 truncate text-[16px] font-semibold tracking-tight">
             <span className="truncate">{chat.name}</span>
+            {disappearingTimer !== 'off' && (
+              <Clock size={12} className="shrink-0 text-wa-green" title="Disappearing messages on" />
+            )}
             {pinned && <Pin size={12} className="shrink-0 rotate-45 text-wa-muted" />}
             {muted && <BellOff size={13} className="shrink-0 text-wa-muted" />}
           </h1>
@@ -470,6 +478,17 @@ export default function ChatWindow({
               <button type="button" onClick={openSearch} className={menuButton}>
                 <Search size={17} className="text-wa-green" />
                 <span className="flex-1">Search messages</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDisappearingOpen(true)
+                  setMenuOpen(false)
+                }}
+                className={menuButton}
+              >
+                <Clock size={17} className="text-wa-green" />
+                <span className="flex-1">Disappearing messages</span>
               </button>
               <button
                 type="button"
@@ -995,6 +1014,16 @@ export default function ChatWindow({
               </div>
             </div>
           </div>,
+          document.body
+        )}
+
+      {disappearingOpen &&
+        createPortal(
+          <DisappearingModal
+            current={disappearingTimer}
+            onSave={onSetTimer}
+            onClose={() => setDisappearingOpen(false)}
+          />,
           document.body
         )}
 

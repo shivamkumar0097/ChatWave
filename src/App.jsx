@@ -145,6 +145,7 @@ function ChatApp() {
     renameGroup,
     transferGroupAdmin,
     deleteGroup,
+    setDisappearingTimer,
     markRead,
     reactToMessage,
     editMessage,
@@ -259,7 +260,10 @@ function ChatApp() {
   const handleSend = async (text, options) => {
     if (!activeId) return
     if (soundOn) playSendSound()
-    const { error } = await sendMessage(activeId, text, null, options)
+    const { error } = await sendMessage(activeId, text, null, {
+      ...options,
+      timer: activeChat?.disappearingTimer,
+    })
     if (error) showToast('Message could not be sent.')
   }
 
@@ -282,7 +286,7 @@ function ChatApp() {
 
     const bucket = isImage ? 'chat-images' : 'chat-files'
     const safeName = file.name.replace(/[^\w.-]+/g, '_') || 'attachment'
-    const path = `${user.id}/${activeId}/${Date.now()}-${safeName}`
+    const path = `${user.id}/${activeId}/${crypto.randomUUID()}-${safeName}`
 
     setUploading(true)
     const { error } = await supabase.storage.from(bucket).upload(path, file, {
@@ -304,13 +308,14 @@ function ChatApp() {
     if (soundOn) playSendSound()
 
     const contentType = (file.type || 'application/octet-stream').split(';')[0]
-    const { error: sendError } = await sendMessage(activeId, options.caption || '', isImage ? url : null, {
-      replyTo: options.replyTo,
-      fileUrl: isImage ? undefined : url,
-      fileName: file.name,
-      fileType: contentType,
-      fileSize: file.size,
-    })
+      const { error: sendError } = await sendMessage(activeId, options.caption || '', isImage ? url : null, {
+        replyTo: options.replyTo,
+        fileUrl: isImage ? undefined : url,
+        fileName: file.name,
+        fileType: contentType,
+        fileSize: file.size,
+        timer: activeChat?.disappearingTimer,
+      })
 
     setUploading(false)
     if (sendError) showToast('Could not send the attachment.')
@@ -367,6 +372,7 @@ function ChatApp() {
       fileName: message.fileName,
       fileType: message.fileType,
       fileSize: message.fileSize,
+      timer: chatsWithPresence.find((chat) => chat.id === id)?.disappearingTimer,
     })
     if (error) {
       showToast('Could not forward the message.')
@@ -441,6 +447,13 @@ function ChatApp() {
     return ok
   }
 
+  const handleSetTimer = async (timer) => {
+    if (!activeId) return false
+    const ok = await setDisappearingTimer(activeId, timer)
+    if (!ok) showToast('Could not update disappearing messages.')
+    return ok
+  }
+
   return (
     <div className="flex h-full overflow-hidden bg-wa-bg">
       <Sidebar
@@ -454,7 +467,6 @@ function ChatApp() {
         onSettings={() => openProfile('settings')}
         soundOn={soundOn}
         onToggleSound={toggleSound}
-        me={me}
         loading={chatsLoading}
         pinnedIds={pinnedIds}
         archivedIds={archivedIds}
@@ -478,6 +490,8 @@ function ChatApp() {
         onTogglePin={() => activeId && toggleId(setPinnedIds, activeId)}
         onToggleArchive={() => activeId && toggleId(setArchivedIds, activeId)}
         onCall={handleCall}
+        disappearingTimer={activeChat?.disappearingTimer || 'off'}
+        onSetTimer={handleSetTimer}
         contacts={contacts}
         onAddMember={handleAddMember}
         onRemoveMember={handleRemoveMember}

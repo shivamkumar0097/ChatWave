@@ -17,6 +17,7 @@ A polished, real-time chat application built with React, Vite, Tailwind CSS and 
 - **Rich messages** — emoji picker, emoji rendering, reply threads, reactions and forwarded messages.
 - **Attachments** — image uploads (up to 5 MB) and file uploads (up to 25 MB) via Supabase Storage, with captions and file details.
 - **Message actions** — edit, delete (for you / for everyone), star, forward, pin and archive.
+- **Disappearing messages** — per-chat setting for **Off**, **24 hours** (auto-hide one day after sending) or **After viewing** (a message disappears as soon as it is seen). The setting applies to new messages.
 - **Profiles** — display name, avatar colour, uploaded avatar photo and a bio/about section.
 - **Calls** — free peer-to-peer 1:1 voice and video calls using WebRTC, with Supabase Realtime as the signaling layer, mute controls and call states.
 - **Notifications** — optional notification sounds and browser desktop notifications.
@@ -68,6 +69,7 @@ Create a Supabase project, then open **SQL Editor** and run the SQL files in `su
 | `schema8.sql` | Edit/delete actions, reaction policies and file attachments (`chat-files` bucket) |
 | `schema9.sql` | Group membership management policies and Realtime for membership changes |
 | `schema10.sql` | Group rename, admin transfer policies and Realtime for conversation changes |
+| `schema11.sql` | Disappearing messages columns and per-chat timer policy |
 
 Each migration is idempotent where possible (`if not exists` / `drop policy if exists`), so re-running one is safe. Make sure email/password sign-in is enabled in **Authentication → Providers**.
 
@@ -98,7 +100,7 @@ src/
 ├── App.jsx         App shell, chat state and all message actions
 ├── index.css       Tailwind theme and global styles
 └── main.jsx        React entry point
-supabase/           SQL migrations (schema.sql → schema10.sql)
+supabase/           SQL migrations (schema.sql → schema11.sql)
 public/             Logo, favicon and icons
 docs/               Screenshots used in this README
 ```

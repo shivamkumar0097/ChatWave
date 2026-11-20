@@ -41,6 +41,7 @@ const formatLastSeen = (iso) => {
     return `last seen at ${date.toLocaleTimeString('en-IN', {
       hour: '2-digit',
       minute: '2-digit',
+      hour12: true,
     })}`
   }
   return `last seen ${date.toLocaleDateString('en-IN', {

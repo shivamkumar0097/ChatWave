@@ -16,7 +16,7 @@ const colorFor = (id) => {
 }
 
 const timeOf = (iso) =>
-  new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })
+  new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
 
 const labelOf = (iso) => {
   if (!iso) return ''

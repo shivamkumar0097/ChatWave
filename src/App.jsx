@@ -243,6 +243,10 @@ function ChatApp() {
       conversationId: activeChat.id,
       peerId,
       peerName: activeChat.name,
+      peerAvatar: activeChat.avatarUrl,
+      peerColor: activeChat.avatarColor,
+      selfAvatar: me.avatarUrl,
+      selfColor: me.color,
       withVideo,
     })
   }

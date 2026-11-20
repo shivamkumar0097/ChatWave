@@ -174,6 +174,8 @@ export function useCall(user) {
           conversationId: payload.conversationId,
           peerId: payload.from,
           peerName: payload.fromName || 'Someone',
+          peerAvatar: payload.fromAvatar || null,
+          peerColor: payload.fromColor || null,
           withVideo: Boolean(payload.withVideo),
           sdp: payload.sdp,
         }
@@ -184,6 +186,8 @@ export function useCall(user) {
           conversationId: offer.conversationId,
           peerId: offer.peerId,
           peerName: offer.peerName,
+          avatarUrl: offer.peerAvatar,
+          avatarColor: offer.peerColor,
           withVideo: offer.withVideo,
         })
         return
@@ -275,7 +279,16 @@ export function useCall(user) {
   }, [])
 
   const startCall = useCallback(
-    async ({ conversationId, peerId, peerName, withVideo = false }) => {
+    async ({
+      conversationId,
+      peerId,
+      peerName,
+      peerAvatar = null,
+      peerColor = null,
+      selfAvatar = null,
+      selfColor = null,
+      withVideo = false,
+    }) => {
       if (!user || callRef.current || incomingRef.current) return
       const stream = await getStream(withVideo)
       if (!stream) {
@@ -289,6 +302,8 @@ export function useCall(user) {
         conversationId,
         peerId,
         peerName,
+        avatarUrl: peerAvatar,
+        avatarColor: peerColor,
         withVideo: stream.getVideoTracks().length > 0,
         role: 'caller',
         phase: 'calling',
@@ -310,6 +325,8 @@ export function useCall(user) {
         conversationId,
         sdp: descriptionOf(pc.localDescription),
         fromName: displayNameOf(user),
+        fromAvatar: selfAvatar,
+        fromColor: selfColor,
         withVideo: info.withVideo,
       })
       if (!sent) {
@@ -345,6 +362,8 @@ export function useCall(user) {
       conversationId: offer.conversationId,
       peerId: offer.peerId,
       peerName: offer.peerName,
+      avatarUrl: offer.peerAvatar,
+      avatarColor: offer.peerColor,
       withVideo: stream.getVideoTracks().length > 0,
       role: 'callee',
       phase: 'connecting',

@@ -15,6 +15,27 @@ const initialsOf = (name) =>
     .slice(0, 2)
     .toUpperCase()
 
+function CallAvatar({ name, src, color }) {
+  const [failed, setFailed] = useState(false)
+  return (
+    <div
+      className="grid h-28 w-28 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-emerald-400/40 to-teal-500/20 text-3xl font-semibold ring-4 ring-emerald-300/20"
+      style={color ? { backgroundImage: `linear-gradient(140deg, ${color}, #22d3ee88)` } : undefined}
+    >
+      {src && !failed ? (
+        <img
+          src={src}
+          alt={name}
+          onError={() => setFailed(true)}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        initialsOf(name)
+      )}
+    </div>
+  )
+}
+
 export default function CallOverlay({
   incoming,
   call,
@@ -68,9 +89,11 @@ export default function CallOverlay({
             <div className="relative grid place-items-center">
               <span className="absolute h-56 w-56 animate-ping rounded-full bg-emerald-400/10" />
               <span className="absolute h-44 w-44 rounded-full border border-emerald-300/15" />
-              <div className="grid h-28 w-28 place-items-center rounded-full bg-gradient-to-br from-emerald-400/40 to-teal-500/20 text-3xl font-semibold ring-4 ring-emerald-300/20">
-                {initialsOf(incoming.peerName)}
-              </div>
+              <CallAvatar
+                name={incoming.peerName}
+                src={incoming.avatarUrl}
+                color={incoming.avatarColor}
+              />
             </div>
             <h2 className="text-[30px] font-medium tracking-tight">{incoming.peerName}</h2>
             <p className="flex items-center gap-1.5 text-[13px] text-emerald-100/70">
@@ -133,9 +156,11 @@ export default function CallOverlay({
               {remoteStream && <audio ref={remoteAudioRef} autoPlay playsInline />}
               <div className="relative grid place-items-center">
                 <span className="absolute h-44 w-44 rounded-full border border-emerald-300/10" />
-                <div className="grid h-28 w-28 place-items-center rounded-full bg-gradient-to-br from-emerald-400/40 to-teal-500/20 text-3xl font-semibold ring-4 ring-emerald-300/20">
-                  {initialsOf(call.peerName)}
-                </div>
+                <CallAvatar
+                  name={call.peerName}
+                  src={call.avatarUrl}
+                  color={call.avatarColor}
+                />
               </div>
             </>
           )}

@@ -14,6 +14,7 @@ import {
   Moon,
   Sun,
   Palette,
+  Pencil,
   QrCode,
   Settings,
   Sparkles,
@@ -113,6 +114,7 @@ export default function ProfileModal({
   onSignOut,
 }) {
   const [tab, setTab] = useState(initialTab)
+  const [editing, setEditing] = useState(false)
   const [name, setName] = useState(currentName || '')
   const [username, setUsername] = useState(currentUsername || '')
   const [showQr, setShowQr] = useState(false)
@@ -334,7 +336,10 @@ export default function ProfileModal({
               <button
                 key={item.key}
                 type="button"
-                onClick={() => setTab(item.key)}
+                onClick={() => {
+                  setTab(item.key)
+                  if (item.key === 'profile') setEditing(false)
+                }}
                 className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-[12px] font-medium transition-colors ${
                   tab === item.key
                     ? 'bg-white/[0.09] text-white shadow-sm'
@@ -350,6 +355,7 @@ export default function ProfileModal({
 
         <div className="flex-1 overflow-y-auto">
           {tab === 'profile' ? (
+            editing ? (
             <form onSubmit={save} className="space-y-5 px-5 py-5">
               <div className="flex flex-col items-center gap-3">
                 <button
@@ -536,6 +542,50 @@ export default function ProfileModal({
                 {busy ? 'Saving...' : saved ? 'Saved!' : 'Save changes'}
               </button>
             </form>
+            ) : (
+              <div className="flex flex-col items-center px-5 py-8 text-center">
+                <div className="ring-gradient w-fit rounded-full p-[2px]">
+                  <div className="rounded-full bg-[#0f1220] p-[3px]">
+                    <Avatar
+                      name={name || currentName}
+                      src={displayAvatar}
+                      color={color}
+                      size="xl"
+                    />
+                  </div>
+                </div>
+                <h3 className="mt-4 text-[18px] font-semibold text-wa-text">
+                  {name.trim() || currentName}
+                </h3>
+                {currentUsername && (
+                  <p className="mt-0.5 text-[12px] text-wa-green">@{currentUsername}</p>
+                )}
+                <p className="mt-1 text-[11.5px] text-wa-muted">{user.email}</p>
+                {bio.trim() && (
+                  <p className="mt-3 max-w-[280px] text-[12.5px] leading-relaxed text-wa-muted">
+                    {bio}
+                  </p>
+                )}
+                <div className="mt-6 flex w-full gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditing(true)}
+                    className="btn-accent flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-[12.5px] font-semibold text-white"
+                  >
+                    <Pencil size={14} />
+                    Edit profile
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowQr(true)}
+                    className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-wa-muted transition-colors hover:bg-white/[0.08] hover:text-wa-text"
+                    aria-label="Show QR code"
+                  >
+                    <QrCode size={16} />
+                  </button>
+                </div>
+              </div>
+            )
           ) : (
             <div className="space-y-4 px-5 py-5">
               <p className="text-[11px] leading-relaxed text-wa-muted">

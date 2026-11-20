@@ -1,5 +1,7 @@
 let context = null
 let ringTimer = null
+let ringToken = 0
+let ringNodes = []
 
 const soundEnabled = () =>
   typeof window === 'undefined' || window.localStorage.getItem('cw-sound') !== 'off'
@@ -20,7 +22,7 @@ const run = (ctx, play) => {
   play(ctx)
 }
 
-const note = (ctx, frequency, start, duration, volume) => {
+const note = (ctx, frequency, start, duration, volume, tracked = false) => {
   const oscillator = ctx.createOscillator()
   const gain = ctx.createGain()
 
@@ -34,6 +36,7 @@ const note = (ctx, frequency, start, duration, volume) => {
   gain.connect(ctx.destination)
   oscillator.start(start)
   oscillator.stop(start + duration + 0.02)
+  if (tracked) ringNodes.push({ oscillator, gain })
 }
 
 export const playNotification = () => {
@@ -87,22 +90,36 @@ export const startRingtone = () => {
   const ctx = getContext()
   if (!ctx) return
 
-  const playOnce = () =>
+  const token = ++ringToken
+  const playOnce = () => {
+    if (token !== ringToken) return
     run(ctx, (audio) => {
+      if (token !== ringToken) return
       const start = audio.currentTime + 0.02
-      note(audio, 587.33, start, 0.17, 0.05)
-      note(audio, 783.99, start + 0.19, 0.17, 0.05)
-      note(audio, 659.25, start + 0.43, 0.17, 0.05)
-      note(audio, 880, start + 0.62, 0.3, 0.045)
+      note(audio, 587.33, start, 0.17, 0.05, true)
+      note(audio, 783.99, start + 0.19, 0.17, 0.05, true)
+      note(audio, 659.25, start + 0.43, 0.17, 0.05, true)
+      note(audio, 880, start + 0.62, 0.3, 0.045, true)
     })
+  }
 
   playOnce()
   ringTimer = window.setInterval(playOnce, 2200)
 }
 
 export const stopRingtone = () => {
+  ringToken += 1
   if (ringTimer) {
     window.clearInterval(ringTimer)
     ringTimer = null
   }
+  for (const node of ringNodes) {
+    try {
+      node.oscillator.stop()
+    } catch {}
+    try {
+      node.gain.disconnect()
+    } catch {}
+  }
+  ringNodes = []
 }

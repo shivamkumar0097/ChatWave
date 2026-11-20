@@ -98,6 +98,44 @@
   transform: scale(0.94);
 }
 
+@keyframes reaction-burst-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.2) translateY(6px);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.5) translateY(-4px);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1) translateY(-10px);
+  }
+}
+
+@keyframes reaction-particle {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.3);
+  }
+  35% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--burst-x)), calc(-50% + var(--burst-y))) scale(0.7);
+  }
+}
+
+.reaction-burst-emoji {
+  display: inline-block;
+  animation: reaction-burst-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.reaction-burst-particle {
+  animation: reaction-particle 0.7s ease-out both;
+}
+
 @keyframes voice-bar-pulse {
   0%,
   100% {

@@ -62,6 +62,9 @@ export default function MessageBubble({
   const [sheetOpen, setSheetOpen] = useState(false)
   const [sheetMode, setSheetMode] = useState('actions')
   const [reactsOpen, setReactsOpen] = useState(false)
+  const [burst, setBurst] = useState(null)
+  const burstSeqRef = useRef(0)
+  const burstTimerRef = useRef(null)
   const [dragX, setDragX] = useState(0)
   const [swiping, setSwiping] = useState(false)
   const startX = useRef(0)
@@ -90,7 +93,12 @@ export default function MessageBubble({
     setSheetOpen(true)
   }
 
-  useEffect(() => clearPress, [])
+  useEffect(() => {
+    return () => {
+      clearPress()
+      if (burstTimerRef.current) window.clearTimeout(burstTimerRef.current)
+    }
+  }, [])
 
   const touchStart = (event) => {
     const touch = event.touches[0]
@@ -141,6 +149,10 @@ export default function MessageBubble({
   const toggleReaction = (emoji) => {
     setReactsOpen(false)
     setSheetOpen(false)
+    burstSeqRef.current += 1
+    setBurst({ emoji, key: burstSeqRef.current })
+    if (burstTimerRef.current) window.clearTimeout(burstTimerRef.current)
+    burstTimerRef.current = window.setTimeout(() => setBurst(null), 800)
     onReact?.(message, emoji)
   }
 
@@ -338,6 +350,32 @@ export default function MessageBubble({
               >
                 {entry.emoji}
                 {entry.count > 1 && <span className="text-[10px] text-wa-muted">{entry.count}</span>}
+              </span>
+            ))}
+          </span>
+        )}
+        {burst && (
+          <span
+            key={burst.key}
+            className={`reaction-burst pointer-events-none absolute -top-3 text-[18px] ${
+              mine ? 'right-1' : 'left-1'
+            }`}
+          >
+            <span className="reaction-burst-emoji">{burst.emoji}</span>
+            {[
+              [-22, -18],
+              [-10, -28],
+              [2, -34],
+              [14, -28],
+              [24, -16],
+              [0, -40],
+            ].map(([x, y], index) => (
+              <span
+                key={index}
+                className="reaction-burst-particle absolute left-1/2 top-1/2 text-[11px]"
+                style={{ '--burst-x': `${x}px`, '--burst-y': `${y}px`, animationDelay: `${index * 35}ms` }}
+              >
+                {burst.emoji}
               </span>
             ))}
           </span>

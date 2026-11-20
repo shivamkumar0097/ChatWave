@@ -100,17 +100,21 @@ export default function CallOverlay({
         <div
           className={`animate-fade-in fixed inset-0 z-[120] flex flex-col items-center justify-center gap-8 px-6 py-10 text-white ${callBackground}`}
         >
-          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-200/60">
+          <p
+            className={`text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-200/60 ${
+              call.withVideo ? 'max-sm:hidden' : ''
+            }`}
+          >
             {call.role === 'caller' ? 'Calling' : 'In call'}
           </p>
 
           {call.withVideo && (
-            <div className="relative w-full max-w-3xl">
+            <div className="relative w-full max-w-3xl max-sm:fixed max-sm:inset-0 max-sm:z-0">
               <video
                 ref={remoteVideoRef}
                 autoPlay
                 playsInline
-                className="max-h-[64vh] w-full rounded-3xl bg-black object-contain shadow-2xl"
+                className="max-h-[64vh] w-full rounded-3xl bg-black object-contain shadow-2xl max-sm:h-full max-sm:max-h-none max-sm:w-full max-sm:rounded-none max-sm:object-cover max-sm:shadow-none"
               />
               {localStream && (
                 <video
@@ -118,7 +122,7 @@ export default function CallOverlay({
                   autoPlay
                   playsInline
                   muted
-                  className="absolute bottom-3 right-3 h-28 w-20 rounded-xl border border-white/15 bg-black object-cover shadow-lg"
+                  className="absolute bottom-3 right-3 h-28 w-20 rounded-xl border border-white/15 bg-black object-cover shadow-lg max-sm:bottom-24 max-sm:h-36 max-sm:w-24"
                 />
               )}
             </div>
@@ -136,8 +140,8 @@ export default function CallOverlay({
             </>
           )}
 
-          <div className="text-center">
-            <h2 className="text-[26px] font-medium tracking-tight">{call.peerName}</h2>
+          <div className="text-center max-sm:absolute max-sm:bottom-28 max-sm:left-0 max-sm:right-0 max-sm:z-10">
+            <h2 className="text-[26px] font-medium tracking-tight drop-shadow-lg">{call.peerName}</h2>
             <p className="mt-1 text-[13px] text-emerald-100/70">
               {call.phase === 'connected'
                 ? formatDuration(seconds)
@@ -147,7 +151,7 @@ export default function CallOverlay({
             </p>
           </div>
 
-          <div className="flex w-full max-w-xs items-start justify-center gap-16">
+          <div className="flex w-full max-w-xs items-start justify-center gap-16 max-sm:absolute max-sm:bottom-8 max-sm:left-1/2 max-sm:z-10 max-sm:-translate-x-1/2">
             <button
               type="button"
               onClick={onToggleMute}

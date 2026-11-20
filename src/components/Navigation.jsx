@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from 'react'
 import { Circle, MessageCircle, Phone, Users } from 'lucide-react'
 
 const TABS = [
@@ -39,30 +40,138 @@ export function TabPlaceholder({ tab }) {
 }
 
 export default function Navigation({ active, onChange, mobile = false }) {
+  const navRef = useRef(null)
+  const itemRefs = useRef([])
+  const timerRef = useRef(null)
+  const draggingRef = useRef(false)
+  const suppressClickRef = useRef(false)
+  const [layouts, setLayouts] = useState([])
+  const [dragIndex, setDragIndex] = useState(null)
+  const activeIndex = Math.max(0, TABS.findIndex((tab) => tab.key === active))
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      setLayouts(
+        itemRefs.current.map((node) =>
+          node
+            ? {
+                left: node.offsetLeft,
+                top: node.offsetTop,
+                width: node.offsetWidth,
+                height: node.offsetHeight,
+              }
+            : null
+        )
+      )
+    }
+    measure()
+    const nav = navRef.current
+    if (!nav || typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver(measure)
+    observer.observe(nav)
+    return () => observer.disconnect()
+  }, [mobile])
+
+  const displayIndex = dragIndex ?? activeIndex
+  const pill = layouts[displayIndex]
+
+  const nearestIndex = (clientX, clientY) => {
+    let best = 0
+    let distance = Infinity
+    itemRefs.current.forEach((node, index) => {
+      if (!node) return
+      const rect = node.getBoundingClientRect()
+      const dx = clientX - (rect.left + rect.width / 2)
+      const dy = clientY - (rect.top + rect.height / 2)
+      const next = dx * dx + dy * dy
+      if (next < distance) {
+        distance = next
+        best = index
+      }
+    })
+    return best
+  }
+
+  const pointerDown = (event, index) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {}
+    draggingRef.current = false
+    timerRef.current = window.setTimeout(() => {
+      draggingRef.current = true
+      setDragIndex(index)
+    }, 260)
+  }
+
+  const pointerMove = (event) => {
+    if (!draggingRef.current) return
+    setDragIndex(nearestIndex(event.clientX, event.clientY))
+  }
+
+  const pointerUp = (event, commit = true) => {
+    if (timerRef.current) window.clearTimeout(timerRef.current)
+    if (!draggingRef.current) return
+    draggingRef.current = false
+    const target = nearestIndex(event.clientX, event.clientY)
+    setDragIndex(null)
+    if (commit) {
+      suppressClickRef.current = true
+      onChange(TABS[target].key)
+      window.setTimeout(() => {
+        suppressClickRef.current = false
+      }, 0)
+    }
+  }
+
+  const baseClass = 'relative z-10 touch-none'
+
+  const indicator = pill && (
+    <span
+      className={`pointer-events-none absolute left-0 top-0 z-0 border border-white/15 bg-white/[0.14] shadow-[0_10px_30px_-12px_rgba(124,92,255,0.95)] backdrop-blur-md will-change-transform ease-out ${
+        dragIndex !== null ? 'transition-none' : 'transition-transform duration-200'
+      } ${mobile ? 'rounded-xl' : 'rounded-2xl'}`}
+      style={{
+        width: pill.width,
+        height: pill.height,
+        transform: `translate3d(${pill.left}px, ${pill.top}px, 0)`,
+      }}
+    />
+  )
+
   if (mobile) {
     return (
-      <nav className="animate-fade-up fixed inset-x-0 bottom-0 z-40 flex h-16 items-center justify-around border-t border-wa-border bg-wa-bg/95 backdrop-blur-xl md:hidden">
-        {TABS.map((tab) => {
-          const activeTab = active === tab.key
+      <nav
+        ref={navRef}
+        className="animate-fade-up fixed inset-x-0 bottom-0 z-40 flex h-16 items-center justify-around border-t border-wa-border bg-wa-bg/95 backdrop-blur-xl md:hidden"
+      >
+        {indicator}
+        {TABS.map((tab, index) => {
+          const activeTab = displayIndex === index
           return (
             <button
               key={tab.key}
+              ref={(node) => {
+                itemRefs.current[index] = node
+              }}
               type="button"
-              onClick={() => onChange(tab.key)}
-              className={`relative flex min-w-16 flex-col items-center gap-1 rounded-xl px-2 py-2 text-[10px] font-medium transition-all duration-300 ${
+              onPointerDown={(event) => pointerDown(event, index)}
+              onPointerMove={pointerMove}
+              onPointerUp={pointerUp}
+              onPointerCancel={(event) => pointerUp(event, false)}
+              onClick={() => {
+                if (suppressClickRef.current) return
+                onChange(tab.key)
+              }}
+              className={`${baseClass} flex min-w-16 flex-col items-center gap-1 rounded-xl px-2 py-2 text-[10px] font-medium transition-colors duration-300 ${
                 activeTab ? 'text-wa-green' : 'text-wa-muted'
               }`}
             >
-              <span
-                className={`pointer-events-none absolute inset-x-1 inset-y-0.5 rounded-xl border border-white/15 bg-white/[0.12] shadow-[0_8px_24px_-10px_rgba(124,92,255,0.9)] backdrop-blur-xl transition-all duration-300 ${
-                  activeTab ? 'scale-100 opacity-100' : 'scale-90 opacity-0'
-                }`}
-              />
               <tab.icon
                 size={19}
-                className={`relative transition-transform duration-300 ${activeTab ? '-translate-y-0.5 scale-110' : ''}`}
+                className={`transition-transform duration-300 ${activeTab ? '-translate-y-0.5 scale-110' : ''}`}
               />
-              <span className="relative">{tab.label}</span>
+              {tab.label}
             </button>
           )
         })}
@@ -71,33 +180,42 @@ export default function Navigation({ active, onChange, mobile = false }) {
   }
 
   return (
-    <nav className="hidden h-full w-[74px] shrink-0 flex-col items-center gap-2 border-r border-wa-border bg-wa-bg py-4 md:flex">
+    <nav
+      ref={navRef}
+      className="relative hidden h-full w-[74px] shrink-0 flex-col items-center gap-2 border-r border-wa-border bg-wa-bg py-4 md:flex"
+    >
       <div className="mb-4 grid h-10 w-10 place-items-center rounded-2xl bg-wa-green/15 text-wa-green">
         <MessageCircle size={20} />
       </div>
-      {TABS.map((tab) => {
-        const activeTab = active === tab.key
+      {indicator}
+      {TABS.map((tab, index) => {
+        const activeTab = displayIndex === index
         return (
           <button
             key={tab.key}
+            ref={(node) => {
+              itemRefs.current[index] = node
+            }}
             type="button"
-            onClick={() => onChange(tab.key)}
+            onPointerDown={(event) => pointerDown(event, index)}
+            onPointerMove={pointerMove}
+            onPointerUp={pointerUp}
+            onPointerCancel={(event) => pointerUp(event, false)}
+            onClick={() => {
+              if (suppressClickRef.current) return
+              onChange(tab.key)
+            }}
             title={tab.label}
             aria-label={tab.label}
-            className={`relative flex w-16 flex-col items-center gap-1 rounded-2xl py-2.5 transition-all duration-300 ${
+            className={`${baseClass} flex w-16 flex-col items-center gap-1 rounded-2xl py-2.5 transition-colors duration-300 ${
               activeTab ? 'text-wa-green' : 'text-wa-muted hover:text-wa-text'
             }`}
           >
-            <span
-              className={`pointer-events-none absolute inset-0 rounded-2xl border border-white/15 bg-white/[0.1] shadow-[0_10px_30px_-12px_rgba(124,92,255,0.9)] backdrop-blur-xl transition-all duration-300 ${
-                activeTab ? 'scale-100 opacity-100' : 'scale-90 opacity-0'
-              }`}
-            />
             <tab.icon
               size={20}
-              className={`relative transition-transform duration-300 ${activeTab ? '-translate-y-0.5 scale-110' : ''}`}
+              className={`transition-transform duration-300 ${activeTab ? '-translate-y-0.5 scale-110' : ''}`}
             />
-            <span className="relative text-[9.5px] font-medium">{tab.label}</span>
+            <span className="text-[9.5px] font-medium">{tab.label}</span>
           </button>
         )
       })}

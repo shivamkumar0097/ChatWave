@@ -1,6 +1,11 @@
 ﻿import { useState } from 'react'
-import { ArrowRight, Check, Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck, User, Users, X, Zap } from 'lucide-react'
+import { ArrowRight, AtSign, Check, Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck, User, Users, X, Zap } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
+import { supabase } from '@/lib/supabase'
+
+const USERNAME_PATTERN = /^[a-z0-9._]{3,20}$/
+
+const cleanUsername = (value) => value.trim().toLowerCase().replace(/^@/, '')
 
 const TERMS = [
   {
@@ -97,6 +102,7 @@ export default function AuthScreen() {
   const { signIn, signUp } = useAuth()
   const [mode, setMode] = useState('signin')
   const [name, setName] = useState('')
+  const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -142,10 +148,28 @@ export default function AuthScreen() {
       return
     }
 
+    const handle = cleanUsername(username)
+    if (isSignup && !USERNAME_PATTERN.test(handle)) {
+      setError('Username must be 3-20 characters: letters, numbers, . or _ (no spaces).')
+      return
+    }
+
+    if (isSignup && supabase) {
+      const { data: taken } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', handle)
+        .limit(1)
+      if (taken?.length) {
+        setError('That username is already taken.')
+        return
+      }
+    }
+
     setBusy(true)
 
     const result = isSignup
-      ? await signUp(email.trim(), password, name.trim() || email.split('@')[0])
+      ? await signUp(email.trim(), password, name.trim() || email.split('@')[0], handle)
       : await signIn(email.trim(), password)
 
     setBusy(false)
@@ -280,6 +304,31 @@ export default function AuthScreen() {
                       aria-label="Your name"
                       className="input-luxe pl-10"
                     />
+                  </div>
+                )}
+
+                {isSignup && (
+                  <div className="group relative">
+                    <AtSign
+                      size={16}
+                      className="pointer-events-none absolute left-3.5 top-1/2 z-10 -translate-y-1/2 text-wa-muted transition-colors group-focus-within:text-wa-green"
+                    />
+                    <input
+                      id="auth-username"
+                      name="username"
+                      autoComplete="username"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      required
+                      value={username}
+                      onChange={(event) => setUsername(event.target.value)}
+                      placeholder="Username"
+                      aria-label="Username"
+                      className="input-luxe pl-10"
+                    />
+                    <span className="mt-1 block text-[10px] leading-relaxed text-wa-muted">
+                      3-20 characters · letters, numbers, . or _ · no spaces
+                    </span>
                   </div>
                 )}
 

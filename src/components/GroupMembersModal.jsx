@@ -23,9 +23,14 @@ export default function GroupMembersModal({
 
   const members = chat.members || []
   const memberIds = chat.memberIds ?? members.map((member) => member.id)
-  const available = contacts.filter(
-    (contact) => !memberIds.includes(contact.id) && contact.name.toLowerCase().includes(query.trim().toLowerCase())
-  )
+  const term = query.trim().toLowerCase().replace(/^@/, '')
+  const available = term
+    ? contacts.filter(
+        (contact) =>
+          !memberIds.includes(contact.id) &&
+          (contact.username || '').toLowerCase().includes(term)
+      )
+    : []
 
   const run = async (id, action) => {
     if (busyId) return
@@ -129,14 +134,14 @@ export default function GroupMembersModal({
                 spellCheck={false}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Add people by name"
+                placeholder="Add by username"
                 className="w-full bg-transparent py-0.5 text-[12.5px] outline-none placeholder:text-wa-muted"
               />
             </div>
             <div className="mt-2 max-h-40 space-y-0.5 overflow-y-auto">
               {available.length === 0 ? (
                 <p className="px-2 py-3 text-center text-[11px] text-wa-muted">
-                  No contacts left to add.
+                  {term ? 'No account found with that username.' : 'Search by username to add people.'}
                 </p>
               ) : (
                 available.map((contact) => (

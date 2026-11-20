@@ -203,6 +203,8 @@ function ChatApp() {
 
   const me = {
     name: myProfile?.name || user.user_metadata?.full_name || user.email.split('@')[0],
+    username:
+      myProfile?.username || user.user_metadata?.username || '',
     avatarUrl: myProfile?.avatar_url || null,
     color: myProfile?.avatar_color || '#7c5cff',
     bio: myProfile?.bio || '',
@@ -548,6 +550,7 @@ function ChatApp() {
         <ProfileModal
           user={user}
           currentName={me.name}
+          currentUsername={me.username}
           currentAvatarUrl={me.avatarUrl}
           currentBio={me.bio}
           currentColor={me.color}

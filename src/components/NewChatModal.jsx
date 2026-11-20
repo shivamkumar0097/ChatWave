@@ -5,9 +5,10 @@ import Avatar from '@/components/Avatar'
 export default function NewChatModal({ contacts, onClose, onPick }) {
   const [query, setQuery] = useState('')
 
-  const filtered = contacts.filter((contact) =>
-    contact.name.toLowerCase().includes(query.trim().toLowerCase())
-  )
+  const term = query.trim().toLowerCase().replace(/^@/, '')
+  const filtered = term
+    ? contacts.filter((contact) => (contact.username || '').toLowerCase().includes(term))
+    : []
 
   return (
     <div className="animate-fade-in fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 pt-16 backdrop-blur-md sm:pt-24">
@@ -20,7 +21,7 @@ export default function NewChatModal({ contacts, onClose, onPick }) {
             </span>
             <div>
               <h2 className="text-[13.5px] font-semibold">New conversation</h2>
-              <p className="text-[10.5px] text-wa-muted">Pick someone to say hello</p>
+              <p className="text-[10.5px] text-wa-muted">Find people by username</p>
             </div>
           </div>
           <button type="button" onClick={onClose} className="icon-btn" aria-label="Close">
@@ -37,7 +38,7 @@ export default function NewChatModal({ contacts, onClose, onPick }) {
               spellCheck={false}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search people"
+              placeholder="Search by username"
               className="w-full bg-transparent py-0.5 text-[13.5px] outline-none placeholder:text-wa-muted"
             />
           </div>
@@ -45,8 +46,10 @@ export default function NewChatModal({ contacts, onClose, onPick }) {
 
         <div className="max-h-[55vh] overflow-y-auto p-2">
           {filtered.length === 0 ? (
-            <p className="px-4 py-10 text-center text-[12.5px] text-wa-muted">
-              No users found. Create another account to start chatting.
+            <p className="px-4 py-10 text-center text-[12.5px] leading-relaxed text-wa-muted">
+              {term
+                ? 'No account found with that username.'
+                : 'Search by username to find someone to chat with.'}
             </p>
           ) : (
             filtered.map((contact) => (
@@ -64,9 +67,9 @@ export default function NewChatModal({ contacts, onClose, onPick }) {
                 />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[13.5px] font-medium">{contact.name}</span>
-                  <span className="block truncate text-[10.5px] text-wa-muted">
-                    {contact.bio || 'Available to chat'}
-                  </span>
+                    <span className="block truncate text-[10.5px] text-wa-muted">
+                      {contact.username ? `@${contact.username}` : contact.bio || 'Available to chat'}
+                    </span>
                 </span>
                 <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-[10px] text-wa-muted">
                   Message

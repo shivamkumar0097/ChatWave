@@ -1,5 +1,6 @@
 ﻿import { useRef, useState } from 'react'
 import {
+  AtSign,
   Bell,
   BellOff,
   CalendarDays,
@@ -19,6 +20,10 @@ import {
 } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import { supabase } from '@/lib/supabase'
+
+const USERNAME_PATTERN = /^[a-z0-9._]{3,20}$/
+
+const cleanUsername = (value) => value.trim().toLowerCase().replace(/^@/, '')
 
 const COLORS = [
   '#7c5cff',
@@ -82,6 +87,7 @@ function SettingRow({ icon: Icon, title, description, value, onToggle }) {
 export default function ProfileModal({
   user,
   currentName,
+  currentUsername = '',
   currentAvatarUrl,
   currentBio = '',
   currentColor = '#7c5cff',
@@ -94,6 +100,7 @@ export default function ProfileModal({
 }) {
   const [tab, setTab] = useState(initialTab)
   const [name, setName] = useState(currentName || '')
+  const [username, setUsername] = useState(currentUsername || '')
   const [bio, setBio] = useState(currentBio || '')
   const [color, setColor] = useState(currentColor || '#7c5cff')
   const [preview, setPreview] = useState('')
@@ -144,6 +151,26 @@ export default function ProfileModal({
     setNote('')
     setSaved(false)
 
+    const handle = cleanUsername(username)
+    if (handle && !USERNAME_PATTERN.test(handle)) {
+      setBusy(false)
+      setError('Username must be 3-20 characters: letters, numbers, . or _ (no spaces).')
+      return
+    }
+    if (handle && supabase) {
+      const { data: taken } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', handle)
+        .neq('id', user.id)
+        .limit(1)
+      if (taken?.length) {
+        setBusy(false)
+        setError('That username is already taken.')
+        return
+      }
+    }
+
     let nextAvatarUrl = removed ? null : currentAvatarUrl || null
     const file = fileRef.current?.files?.[0]
 
@@ -165,6 +192,7 @@ export default function ProfileModal({
 
     const payload = {
       name: name.trim() || currentName,
+      username: handle || null,
       avatar_url: nextAvatarUrl,
       avatar_color: color,
       bio: bio.trim(),
@@ -188,12 +216,13 @@ export default function ProfileModal({
         setError(retry.error.message)
         return
       }
-      setNote('About was not saved — run supabase/schema7.sql to enable it.')
+      setNote('Some profile fields were not saved — run the latest schema migrations.')
     }
 
     setBusy(false)
     setSaved(true)
     setPreview(nextAvatarUrl || '')
+    setUsername(handle)
     setRemoved(false)
     if (fileRef.current) fileRef.current.value = ''
     await onSaved?.()
@@ -362,6 +391,30 @@ export default function ProfileModal({
                   placeholder="Your name"
                   className="input-luxe"
                 />
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-[11px] font-medium text-wa-muted">
+                  Username
+                </span>
+                <div className="relative">
+                  <AtSign
+                    size={15}
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-wa-muted"
+                  />
+                  <input
+                    value={username}
+                    onChange={(event) => setUsername(event.target.value)}
+                    maxLength={21}
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    placeholder="Set username"
+                    className="input-luxe pl-9"
+                  />
+                </div>
+                <span className="mt-1 block text-[10px] leading-relaxed text-wa-muted">
+                  3-20 characters · letters, numbers, . or _ · no spaces. Others can find you by this.
+                </span>
               </label>
 
               <label className="block">

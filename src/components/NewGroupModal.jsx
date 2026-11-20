@@ -8,9 +8,10 @@ export default function NewGroupModal({ contacts, onClose, onCreate }) {
   const [selected, setSelected] = useState([])
   const [busy, setBusy] = useState(false)
 
-  const filtered = contacts.filter((contact) =>
-    contact.name.toLowerCase().includes(query.trim().toLowerCase())
-  )
+  const term = query.trim().toLowerCase().replace(/^@/, '')
+  const filtered = term
+    ? contacts.filter((contact) => (contact.username || '').toLowerCase().includes(term))
+    : []
   const canCreate = Boolean(name.trim()) && selected.length > 0 && !busy
 
   const toggle = (id) =>
@@ -90,7 +91,7 @@ export default function NewGroupModal({ contacts, onClose, onCreate }) {
               spellCheck={false}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search people to add"
+              placeholder="Search by username"
               className="w-full bg-transparent py-0.5 text-[13.5px] outline-none placeholder:text-wa-muted"
             />
           </div>
@@ -99,7 +100,9 @@ export default function NewGroupModal({ contacts, onClose, onCreate }) {
         <div className="max-h-[42vh] overflow-y-auto p-2">
           {filtered.length === 0 ? (
             <p className="px-4 py-8 text-center text-[12.5px] text-wa-muted">
-              No contacts found. Create another account to add people.
+              {term
+                ? 'No account found with that username.'
+                : 'Search by username to add people.'}
             </p>
           ) : (
             filtered.map((contact) => {

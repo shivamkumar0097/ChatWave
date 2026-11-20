@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 
 const PALETTE = ['#6a5acd', '#e91e63', '#00897b', '#f57c00', '#8e24aa', '#1e88e5', '#43a047', '#d81b60']
 
-const PROFILE_COLUMNS = 'id, name, avatar_color, avatar_url, last_seen, bio'
+const PROFILE_COLUMNS = 'id, name, username, avatar_color, avatar_url, last_seen, bio'
 const PROFILE_COLUMNS_BASE = 'id, name, avatar_color, avatar_url, last_seen'
 
 const readReceiptsEnabled = () =>
@@ -183,6 +183,7 @@ export function useChats(user, activeId) {
         .map((profile) => ({
           id: profile.id,
           name: profile.name,
+          username: profile.username || '',
           avatarColor: profile.avatar_color || colorFor(profile.id),
           avatarUrl: profile.avatar_url || null,
           bio: profile.bio || '',
@@ -257,6 +258,7 @@ export function useChats(user, activeId) {
         .map((row) => ({
           id: row.user_id,
           name: row.profiles?.name || 'Member',
+          username: row.profiles?.username || '',
           avatarColor: row.profiles?.avatar_color || colorFor(row.user_id),
           avatarUrl: row.profiles?.avatar_url || null,
           bio: row.profiles?.bio || '',
@@ -508,6 +510,7 @@ export function useChats(user, activeId) {
                 ? {
                     ...contact,
                     name: row.name,
+                    username: row.username ?? contact.username,
                     avatarColor: row.avatar_color || contact.avatarColor,
                     avatarUrl: row.avatar_url || null,
                     bio: row.bio || '',
@@ -526,6 +529,7 @@ export function useChats(user, activeId) {
                       ? {
                           ...member,
                           name: row.name,
+                          username: row.username ?? member.username,
                           avatarColor: row.avatar_color || member.avatarColor,
                           avatarUrl: row.avatar_url || null,
                           bio: row.bio || '',

@@ -8,7 +8,8 @@ A polished, real-time chat application built with React, Vite, Tailwind CSS and 
 
 ## Features
 
-- **Authentication** — email/password sign up and sign in powered by Supabase Auth, with a password-strength indicator and protected app routes.
+- **Authentication** — email/password sign up and sign in powered by Supabase Auth, with a username (3-20 characters, no spaces), a password-strength indicator and protected app routes.
+- **Username search** — people are not listed by default in "New chat"; search by their full username to find an account and start messaging. Username can be set during signup or later in Profile settings.
 - **Real-time messaging** — instant 1:1 and group conversations using Supabase Realtime.
 - **Group chats** — create a named group, pick multiple members, see who is online, rename the group, transfer admin rights, add/remove members, leave or delete the group, and view sender names on each message.
 - **Contacts & new chats** — pick a contact to start a conversation; duplicate direct chats are prevented by a database function.
@@ -70,6 +71,7 @@ Create a Supabase project, then open **SQL Editor** and run the SQL files in `su
 | `schema9.sql` | Group membership management policies and Realtime for membership changes |
 | `schema10.sql` | Group rename, admin transfer policies and Realtime for conversation changes |
 | `schema11.sql` | Disappearing messages columns and per-chat timer policy |
+| `schema12.sql` | Username column and signup trigger update |
 
 Each migration is idempotent where possible (`if not exists` / `drop policy if exists`), so re-running one is safe. Make sure email/password sign-in is enabled in **Authentication → Providers**.
 
@@ -100,7 +102,7 @@ src/
 ├── App.jsx         App shell, chat state and all message actions
 ├── index.css       Tailwind theme and global styles
 └── main.jsx        React entry point
-supabase/           SQL migrations (schema.sql → schema11.sql)
+supabase/           SQL migrations (schema.sql → schema12.sql)
 public/             Logo, favicon and icons
 docs/               Screenshots used in this README
 ```

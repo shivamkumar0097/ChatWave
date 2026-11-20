@@ -4,9 +4,28 @@ import { startRingtone, stopRingtone } from '@/lib/sound'
 
 const ICE_SERVERS = [
   {
-    urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'],
+    urls: [
+      'stun:stun.l.google.com:19302',
+      'stun:stun1.l.google.com:19302',
+      'stun:stun2.l.google.com:19302',
+    ],
   },
 ]
+
+const PEER_CONFIG = {
+  iceServers: ICE_SERVERS,
+  iceTransportPolicy: 'all',
+  bundlePolicy: 'max-bundle',
+  rtcpMuxPolicy: 'require',
+}
+
+const AUDIO_CONSTRAINTS = {
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl: true,
+  channelCount: { ideal: 1 },
+  sampleRate: { ideal: 48000 },
+}
 
 if (import.meta.env.VITE_TURN_URL) {
   ICE_SERVERS.push({
@@ -114,7 +133,7 @@ export function useCall(user) {
   }, [])
 
   const preparePeer = useCallback(async () => {
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS })
+    const pc = new RTCPeerConnection(PEER_CONFIG)
     pcRef.current = pc
 
     pc.onicecandidate = (event) => {
@@ -264,17 +283,28 @@ export function useCall(user) {
   )
 
   const getStream = useCallback(async (withVideo) => {
+    const request = (video) =>
+      navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video })
+
     try {
-      return await navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo })
+      return await request(withVideo)
     } catch {
       if (withVideo) {
         try {
-          return await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+          return await request(false)
         } catch {
-          return null
+          try {
+            return await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+          } catch {
+            return null
+          }
         }
       }
-      return null
+      try {
+        return await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      } catch {
+        return null
+      }
     }
   }, [])
 

@@ -130,9 +130,9 @@ export default function MessageBubble({
     if (axis.current === 'x') {
       moved.current = true
       const clamped = mine
-        ? Math.min(Math.max(dx, 0), maxDrag)
-        : Math.max(Math.min(dx, 0), -maxDrag)
-      setDragX(mine ? -clamped : clamped)
+        ? Math.max(Math.min(dx, 0), -maxDrag)
+        : Math.min(Math.max(dx, 0), maxDrag)
+      setDragX(clamped)
     }
   }
 

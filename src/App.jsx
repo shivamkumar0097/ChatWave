@@ -166,6 +166,14 @@ function ChatApp() {
 
   const handleToggleLock = () => setLockAction(lockEnabled ? 'disable' : 'set')
 
+  const handleForgotPin = () => {
+    window.localStorage.removeItem('cw-app-pin')
+    window.localStorage.removeItem('cw-app-lock')
+    setLockEnabled(false)
+    setUnlocked(true)
+    signOut()
+  }
+
   const handleLockSuccess = (pin) => {
     if (lockAction === 'set') {
       window.localStorage.setItem('cw-app-pin', pin)
@@ -851,11 +859,13 @@ function ChatApp() {
           mode="verify"
           expectedPin={window.localStorage.getItem('cw-app-pin') || ''}
           onSuccess={() => setUnlocked(true)}
+          onForgot={handleForgotPin}
         />
       )}
       {isMobile && lockAction && (
         <AppLock
           mode={lockAction}
+          expectedPin={window.localStorage.getItem('cw-app-pin') || ''}
           onSuccess={handleLockSuccess}
           onCancel={() => setLockAction(null)}
         />

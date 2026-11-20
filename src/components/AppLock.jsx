@@ -3,11 +3,12 @@ import { Delete, LockKeyhole } from 'lucide-react'
 
 const KEYPAD = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'back']
 
-export default function AppLock({ mode = 'verify', expectedPin, onSuccess, onCancel }) {
+export default function AppLock({ mode = 'verify', expectedPin, onSuccess, onCancel, onForgot }) {
   const [pin, setPin] = useState('')
   const [confirm, setConfirm] = useState('')
   const [step, setStep] = useState(mode === 'set' ? 'enter' : 'verify')
   const [error, setError] = useState('')
+  const [forgotConfirm, setForgotConfirm] = useState(false)
 
   const current = step === 'confirm' ? confirm : pin
 
@@ -37,7 +38,7 @@ export default function AppLock({ mode = 'verify', expectedPin, onSuccess, onCan
     if (pin.length >= 4) return
     const next = pin + key
     setPin(next)
-    if (mode === 'verify' && next.length === 4) {
+    if ((mode === 'verify' || mode === 'disable') && next.length === 4) {
       if (next === expectedPin) onSuccess(next)
       else {
         setTimeout(() => setPin(''), 320)
@@ -62,12 +63,20 @@ export default function AppLock({ mode = 'verify', expectedPin, onSuccess, onCan
         </div>
 
         <h2 className="text-[18px] font-semibold text-wa-text">
-          {mode === 'verify' ? 'Unlock ChatWave' : step === 'confirm' ? 'Confirm PIN' : 'Set a PIN'}
+          {mode === 'set'
+            ? step === 'confirm'
+              ? 'Confirm PIN'
+              : 'Set a PIN'
+            : mode === 'disable'
+              ? 'Disable screen lock'
+              : 'Unlock ChatWave'}
         </h2>
         <p className="mt-1 text-center text-[12px] text-wa-muted">
-          {mode === 'verify'
-            ? 'Enter your 4-digit PIN to continue'
-            : 'Choose a 4-digit PIN to lock the app'}
+          {mode === 'set'
+            ? 'Choose a 4-digit PIN to lock the app'
+            : mode === 'disable'
+              ? 'Enter your PIN to turn the lock off'
+              : 'Enter your 4-digit PIN to continue'}
         </p>
 
         <div className="mt-7 flex gap-3 rounded-full border border-white/10 bg-white/[0.05] px-5 py-3 backdrop-blur-xl">
@@ -101,6 +110,42 @@ export default function AppLock({ mode = 'verify', expectedPin, onSuccess, onCan
             )
           )}
         </div>
+
+        {mode === 'verify' && onForgot && (
+          <div className="mt-7 w-full text-center">
+            {forgotConfirm ? (
+              <>
+                <p className="text-[11px] leading-relaxed text-wa-muted">
+                  This clears the PIN and signs you out. Sign in again with your email and password.
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setForgotConfirm(false)}
+                    className="flex-1 rounded-xl border border-white/10 py-2 text-[11.5px] text-wa-muted"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onForgot()}
+                    className="flex-1 rounded-xl bg-red-500/20 py-2 text-[11.5px] font-semibold text-red-200"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setForgotConfirm(true)}
+                className="text-[12px] font-medium text-wa-green transition-opacity hover:opacity-80"
+              >
+                Forgot PIN?
+              </button>
+            )}
+          </div>
+        )}
 
         {onCancel && (
           <button

@@ -371,25 +371,6 @@ body {
 .form-stagger > *:nth-child(5) { animation-delay: 0.2s; }
 .form-stagger > *:nth-child(6) { animation-delay: 0.24s; }
 
-.btn-accent {
-  position: relative;
-  overflow: hidden;
-}
-
-.btn-accent::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.28) 50%, transparent 70%);
-  transform: translateX(-130%);
-  transition: transform 0.65s ease;
-  pointer-events: none;
-}
-
-.btn-accent:hover::after {
-  transform: translateX(130%);
-}
-
 .icon-btn:active {
   transform: scale(0.92);
 }

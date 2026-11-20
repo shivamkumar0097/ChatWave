@@ -69,6 +69,34 @@ export default function Sidebar({
     (a, b) => Number(Boolean(pinnedIds?.has(b.id))) - Number(Boolean(pinnedIds?.has(a.id)))
   )
 
+  const searching = Boolean(query.trim())
+  const emptyTitle = showArchived
+    ? 'No archived chats'
+    : searching
+      ? 'Nothing found'
+      : tab === 'favorites'
+        ? 'No favourites'
+        : tab === 'unread'
+          ? 'No unread messages'
+          : tab === 'groups'
+            ? 'No groups yet'
+            : chats.length === 0
+              ? 'No conversations yet'
+              : 'Nothing found'
+  const emptyHint = showArchived
+    ? 'Chats you archive will show up here.'
+    : searching
+      ? 'Try a different name to find a conversation.'
+      : tab === 'favorites'
+        ? 'Pin a chat from its menu to see it here.'
+        : tab === 'unread'
+          ? 'You are all caught up.'
+          : tab === 'groups'
+            ? 'Create a group from the menu or the + button.'
+            : chats.length === 0
+              ? 'Start your first chat and say hello.'
+              : 'Try a different name to find a conversation.'
+
   const menuItems = [
     {
       key: 'new-chat',
@@ -296,19 +324,9 @@ export default function Sidebar({
                 <div className="animate-float mb-4 grid h-14 w-14 place-items-center rounded-2xl border border-white/[0.07] bg-white/[0.04] text-wa-green">
                   <Sparkles size={24} />
                 </div>
-                <p className="text-sm font-medium text-wa-text">
-                  {showArchived
-                    ? 'No archived chats'
-                    : chats.length === 0
-                      ? 'No conversations yet'
-                      : 'Nothing found'}
-                </p>
+                <p className="text-sm font-medium text-wa-text">{emptyTitle}</p>
                 <p className="mt-1 max-w-[220px] text-[12px] leading-relaxed text-wa-muted">
-                  {showArchived
-                    ? 'Chats you archive will show up here.'
-                    : chats.length === 0
-                      ? 'Start your first chat and say hello.'
-                      : 'Try a different name to find a conversation.'}
+                  {emptyHint}
                 </p>
                 {chats.length === 0 && !showArchived && (
                   <button

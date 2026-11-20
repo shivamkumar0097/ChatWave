@@ -72,6 +72,7 @@ Create a Supabase project, then open **SQL Editor** and run the SQL files in `su
 | `schema10.sql` | Group rename, admin transfer policies and Realtime for conversation changes |
 | `schema11.sql` | Disappearing messages columns and per-chat timer policy |
 | `schema12.sql` | Username column and signup trigger update |
+| `schema13.sql` | Safer update grants, disappearing-timer RPC, message edit guard and unique usernames |
 
 Each migration is idempotent where possible (`if not exists` / `drop policy if exists`), so re-running one is safe. Make sure email/password sign-in is enabled in **Authentication → Providers**.
 
@@ -102,7 +103,7 @@ src/
 ├── App.jsx         App shell, chat state and all message actions
 ├── index.css       Tailwind theme and global styles
 └── main.jsx        React entry point
-supabase/           SQL migrations (schema.sql → schema12.sql)
+supabase/           SQL migrations (schema.sql → schema13.sql)
 public/             Logo, favicon and icons
 docs/               Screenshots used in this README
 ```

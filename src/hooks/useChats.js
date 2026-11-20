@@ -343,7 +343,7 @@ export function useChats(user, activeId) {
         (payload) => {
           const row = payload.new
           const isActive = row.conversation_id === activeRef.current
-          let known = false
+          const known = chatsRef.current.some((chat) => chat.id === row.conversation_id)
 
           if (row.sender_id !== user.id && (!isActive || document.hidden)) {
             const preview = row.view_once
@@ -363,7 +363,16 @@ export function useChats(user, activeId) {
             const now = new Date().toISOString()
             supabase
               .from('messages')
-              .update({ expires_at: now, viewed_by: { [user.id]: now } })
+              .update({
+                expires_at: now,
+                viewed_by: { [user.id]: now },
+                content: '',
+                image_url: null,
+                file_url: null,
+                file_name: null,
+                file_type: null,
+                file_size: null,
+              })
               .eq('id', row.id)
               .then(() => {})
           }
@@ -385,12 +394,13 @@ export function useChats(user, activeId) {
           setChats((prev) =>
             prev.map((chat) => {
               if (chat.id !== row.conversation_id) return chat
-              known = true
-              const base = chat.messages.some(
-                (message) => message.pending && message.senderId === user.id
-              )
-                ? chat.messages.filter((message) => !(message.pending && message.senderId === user.id))
-                : chat.messages
+              const base = chat.messages.filter((message) => {
+                if (!message.pending || message.senderId !== user.id) return true
+                const sameText = (message.text || '') === (row.content || '')
+                const recent =
+                  Math.abs(new Date(message.createdAt) - new Date(row.created_at)) < 10000
+                return !(sameText && recent)
+              })
               if (base.some((message) => message.id === row.id)) return { ...chat, messages: base }
               if (row.view_once && isActive && row.sender_id !== user.id) {
                 return { ...chat, messages: base }
@@ -888,6 +898,12 @@ export function useChats(user, activeId) {
               .update({
                 expires_at: now,
                 viewed_by: { ...(row.viewed_by || {}), [user.id]: now },
+                content: '',
+                image_url: null,
+                file_url: null,
+                file_name: null,
+                file_type: null,
+                file_size: null,
               })
               .eq('id', row.id)
           )
@@ -1031,10 +1047,10 @@ export function useChats(user, activeId) {
     async (conversationId, timer) => {
       if (!user || !conversationId) return false
       const value = normalizeTimer(timer)
-      const { error } = await supabase
-        .from('conversations')
-        .update({ disappearing_timer: value })
-        .eq('id', conversationId)
+      const { error } = await supabase.rpc('set_disappearing_timer', {
+        p_conversation: conversationId,
+        p_timer: value,
+      })
       if (error) return false
       await load()
       return true

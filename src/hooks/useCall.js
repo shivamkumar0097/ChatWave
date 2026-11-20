@@ -104,6 +104,15 @@ export function useCall(user) {
     [sendSignal]
   )
 
+  const patchCall = useCallback((patch) => {
+    setCall((prev) => {
+      if (!prev) return prev
+      const next = typeof patch === 'function' ? patch(prev) : { ...prev, ...patch }
+      callRef.current = next
+      return next
+    })
+  }, [])
+
   const preparePeer = useCallback(async () => {
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS })
     pcRef.current = pc
@@ -126,10 +135,10 @@ export function useCall(user) {
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === 'connected') {
         stopRingtone()
-        setCall((prev) =>
-          prev && prev.phase !== 'connected'
-            ? { ...prev, phase: 'connected', startedAt: prev.startedAt || Date.now() }
-            : prev
+        patchCall((prev) =>
+          prev.phase === 'connected'
+            ? prev
+            : { ...prev, phase: 'connected', startedAt: prev.startedAt || Date.now() }
         )
       }
     }
@@ -138,7 +147,7 @@ export function useCall(user) {
       for (const track of localRef.current.getTracks()) pc.addTrack(track, localRef.current)
     }
     return pc
-  }, [sendSignal])
+  }, [sendSignal, patchCall])
 
   const applyPendingIce = useCallback(async (pc) => {
     for (const candidate of pendingIceRef.current) {
@@ -193,7 +202,7 @@ export function useCall(user) {
         }
         stopRingtone()
         await applyPendingIce(pc)
-        setCall((prev) => (prev ? { ...prev, phase: 'connecting' } : prev))
+        patchCall({ phase: 'connecting' })
         return
       }
 
@@ -222,7 +231,7 @@ export function useCall(user) {
         if (type === 'busy') showNotice('User is busy')
       }
     },
-    [user, sendSignal, applyPendingIce, cleanup, showNotice]
+    [user, sendSignal, applyPendingIce, cleanup, showNotice, patchCall]
   )
 
   useEffect(() => {
@@ -383,8 +392,8 @@ export function useCall(user) {
     stream.getAudioTracks().forEach((track) => {
       track.enabled = !nextMuted
     })
-    setCall((prev) => (prev ? { ...prev, muted: nextMuted } : prev))
-  }, [])
+    patchCall({ muted: nextMuted })
+  }, [patchCall])
 
   return {
     incoming,

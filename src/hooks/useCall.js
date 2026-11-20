@@ -45,13 +45,35 @@ const displayNameOf = (user) =>
 
 const descriptionOf = (description) => ({ type: description.type, sdp: description.sdp })
 
+const historyKey = (userId) => `cw-calls:${userId}`
+
+const readHistory = (userId) => {
+  if (typeof window === 'undefined' || !userId) return []
+  try {
+    const value = JSON.parse(window.localStorage.getItem(historyKey(userId)) || '[]')
+    return Array.isArray(value) ? value : []
+  } catch {
+    return []
+  }
+}
+
+const writeHistory = (userId, entries) => {
+  if (typeof window === 'undefined' || !userId) return
+  window.localStorage.setItem(historyKey(userId), JSON.stringify(entries.slice(0, 100)))
+}
+
 export function useCall(user) {
   const [incoming, setIncoming] = useState(null)
   const [call, setCall] = useState(null)
   const [localStream, setLocalStream] = useState(null)
   const [remoteStream, setRemoteStream] = useState(null)
   const [notice, setNotice] = useState('')
+  const [history, setHistory] = useState(() => readHistory(user?.id))
 
+  const historyRef = useRef(history)
+  const historyIdRef = useRef(null)
+  const patchEntryRef = useRef(null)
+  const pushEntryRef = useRef(null)
   const callRef = useRef(null)
   const incomingRef = useRef(null)
   const pcRef = useRef(null)
@@ -102,6 +124,22 @@ export function useCall(user) {
   const cleanup = useCallback(
     (notifyPeer = false) => {
       stopRingtone()
+      if (historyIdRef.current) {
+        const entry = historyRef.current.find((item) => item.id === historyIdRef.current)
+        if (entry) {
+          patchEntryRef.current?.(entry.id, {
+            duration: entry.connectedAt
+              ? Math.floor((Date.now() - entry.connectedAt) / 1000)
+              : 0,
+            status: entry.connectedAt
+              ? 'completed'
+              : entry.direction === 'outgoing'
+                ? 'no_answer'
+                : 'missed',
+          })
+        }
+        historyIdRef.current = null
+      }
       const current = callRef.current
       if (notifyPeer && current) {
         sendSignal(current.peerId, { type: 'end', callId: current.callId })
@@ -154,6 +192,7 @@ export function useCall(user) {
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === 'connected') {
         stopRingtone()
+        patchEntryRef.current?.(historyIdRef.current, { status: 'completed', connectedAt: Date.now() })
         patchCall((prev) =>
           prev.phase === 'connected'
             ? prev
@@ -186,6 +225,18 @@ export function useCall(user) {
       if (type === 'offer') {
         if (current || incomingRef.current) {
           await sendSignal(payload.from, { type: 'busy', callId: payload.callId })
+          pushEntryRef.current?.({
+            id: makeCallId(),
+            peerId: payload.from,
+            peerName: payload.fromName || 'Someone',
+            avatarUrl: payload.fromAvatar || null,
+            avatarColor: payload.fromColor || null,
+            withVideo: Boolean(payload.withVideo),
+            direction: 'incoming',
+            status: 'missed',
+            startedAt: Date.now(),
+            duration: 0,
+          })
           return
         }
         const offer = {
@@ -256,6 +307,64 @@ export function useCall(user) {
     },
     [user, sendSignal, applyPendingIce, cleanup, showNotice, patchCall]
   )
+
+  useEffect(() => {
+    historyRef.current = history
+  }, [history])
+
+  useEffect(() => {
+    setHistory(readHistory(user?.id))
+  }, [user?.id])
+
+  const pushEntry = useCallback(
+    (entry) => {
+      if (!user) return
+      setHistory((prev) => {
+        const next = [entry, ...prev].slice(0, 100)
+        writeHistory(user.id, next)
+        return next
+      })
+    },
+    [user]
+  )
+
+  const patchEntry = useCallback(
+    (id, patch) => {
+      if (!user || !id) return
+      setHistory((prev) => {
+        const next = prev.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry))
+        writeHistory(user.id, next)
+        return next
+      })
+    },
+    [user]
+  )
+
+  const removeHistoryEntry = useCallback(
+    (id) => {
+      if (!user) return
+      setHistory((prev) => {
+        const next = prev.filter((entry) => entry.id !== id)
+        writeHistory(user.id, next)
+        return next
+      })
+    },
+    [user]
+  )
+
+  const clearHistory = useCallback(() => {
+    if (!user) return
+    writeHistory(user.id, [])
+    setHistory([])
+  }, [user])
+
+  useEffect(() => {
+    patchEntryRef.current = patchEntry
+  }, [patchEntry])
+
+  useEffect(() => {
+    pushEntryRef.current = pushEntry
+  }, [pushEntry])
 
   useEffect(() => {
     signalHandlerRef.current = handleSignal
@@ -365,6 +474,21 @@ export function useCall(user) {
         return
       }
 
+      const historyId = makeCallId()
+      historyIdRef.current = historyId
+      pushEntry({
+        id: historyId,
+        peerId,
+        peerName,
+        avatarUrl: peerAvatar,
+        avatarColor: peerColor,
+        withVideo: info.withVideo,
+        direction: 'outgoing',
+        status: 'calling',
+        startedAt: Date.now(),
+        duration: 0,
+      })
+
       timerRef.current = window.setTimeout(() => {
         if (callRef.current?.phase === 'calling') {
           showNotice('No answer')
@@ -372,7 +496,7 @@ export function useCall(user) {
         }
       }, 45000)
     },
-    [user, getStream, preparePeer, sendSignal, showNotice, cleanup]
+    [user, getStream, preparePeer, sendSignal, showNotice, cleanup, pushEntry]
   )
 
   const acceptCall = useCallback(async () => {
@@ -405,6 +529,21 @@ export function useCall(user) {
     callRef.current = info
     setCall(info)
 
+    const historyId = makeCallId()
+    historyIdRef.current = historyId
+    pushEntry({
+      id: historyId,
+      peerId: offer.peerId,
+      peerName: offer.peerName,
+      avatarUrl: offer.peerAvatar,
+      avatarColor: offer.peerColor,
+      withVideo: info.withVideo,
+      direction: 'incoming',
+      status: 'calling',
+      startedAt: Date.now(),
+      duration: 0,
+    })
+
     const pc = await preparePeer()
     try {
       await pc.setRemoteDescription(offer.sdp)
@@ -421,16 +560,28 @@ export function useCall(user) {
       callId: info.callId,
       sdp: descriptionOf(pc.localDescription),
     })
-  }, [getStream, preparePeer, applyPendingIce, sendSignal, showNotice, cleanup])
+  }, [getStream, preparePeer, applyPendingIce, sendSignal, showNotice, cleanup, pushEntry])
 
   const declineCall = useCallback(async () => {
     const offer = incomingRef.current
     if (!offer) return
     stopRingtone()
     await sendSignal(offer.peerId, { type: 'decline', callId: offer.callId })
+    pushEntry({
+      id: makeCallId(),
+      peerId: offer.peerId,
+      peerName: offer.peerName,
+      avatarUrl: offer.peerAvatar,
+      avatarColor: offer.peerColor,
+      withVideo: offer.withVideo,
+      direction: 'incoming',
+      status: 'declined',
+      startedAt: Date.now(),
+      duration: 0,
+    })
     incomingRef.current = null
     setIncoming(null)
-  }, [sendSignal])
+  }, [sendSignal, pushEntry])
 
   const endCall = useCallback(() => cleanup(true), [cleanup])
 
@@ -455,5 +606,8 @@ export function useCall(user) {
     declineCall,
     endCall,
     toggleMute,
+    history,
+    removeHistoryEntry,
+    clearHistory,
   }
 }

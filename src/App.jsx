@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase'
 import { playSendSound } from '@/lib/sound'
 import AuthScreen from '@/pages/AuthScreen'
 import CallOverlay from '@/components/CallOverlay'
+import CallsPanel from '@/components/CallsPanel'
 import ChatWindow from '@/components/ChatWindow'
 import NewChatModal from '@/components/NewChatModal'
 import Navigation, { TabPlaceholder } from '@/components/Navigation'
@@ -109,6 +110,8 @@ function ChatApp() {
     declineCall,
     endCall,
     toggleMute,
+    history: callHistory,
+    removeHistoryEntry,
   } = useCall(user)
   const [activeId, setActiveId] = useState(null)
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
@@ -242,6 +245,7 @@ function ChatApp() {
       })),
   ]
   const activeChat = chatsWithPresence.find((chat) => chat.id === activeId)
+  const mobileNavVisible = activeTab !== 'chats' || !mobileChatOpen
 
   const handleCall = ({ withVideo = false } = {}) => {
     if (!activeChat || activeChat.isGroup) return
@@ -476,7 +480,7 @@ function ChatApp() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-wa-bg">
-      <div className="flex min-h-0 flex-1 pb-16 md:pb-0">
+      <div className={`flex min-h-0 flex-1 md:pb-0 ${mobileNavVisible ? 'pb-16' : ''}`}>
         <Navigation active={activeTab} onChange={setActiveTab} />
         {activeTab === 'chats' ? (
           <>
@@ -502,7 +506,10 @@ function ChatApp() {
         onSend={handleSend}
         onSendAttachment={handleSendAttachment}
         uploading={uploading}
-        onBack={() => setMobileChatOpen(false)}
+        onBack={() => {
+          setMobileChatOpen(false)
+          setActiveId(null)
+        }}
         onReact={handleReact}
         onForward={setForwarding}
         onEditMessage={handleEditMessage}
@@ -530,11 +537,13 @@ function ChatApp() {
             className={mobileChatOpen ? 'flex' : 'hidden md:flex'}
           />
           </>
+        ) : activeTab === 'calls' ? (
+          <CallsPanel history={callHistory} onRemove={removeHistoryEntry} />
         ) : (
           <TabPlaceholder tab={activeTab} />
         )}
       </div>
-      <Navigation mobile active={activeTab} onChange={setActiveTab} />
+      {mobileNavVisible && <Navigation mobile active={activeTab} onChange={setActiveTab} />}
       {forwarding && (
         <ForwardModal
           targets={forwardTargets}

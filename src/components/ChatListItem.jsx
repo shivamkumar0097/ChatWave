@@ -1,15 +1,44 @@
-﻿import { CheckCheck, Check, Pin, Users } from 'lucide-react'
+﻿import { useRef } from 'react'
+import { CheckCheck, Check, Pin, Users } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import EmojiText from '@/components/EmojiText'
 
-export default function ChatListItem({ chat, active, pinned = false, onSelect }) {
+export default function ChatListItem({ chat, active, pinned = false, onSelect, onLongPress }) {
   const last = chat.messages[chat.messages.length - 1]
+  const timerRef = useRef(null)
+  const longPressedRef = useRef(false)
+
+  const startPress = (event) => {
+    longPressedRef.current = false
+    timerRef.current = window.setTimeout(() => {
+      longPressedRef.current = true
+      onLongPress?.(chat, event.clientX, event.clientY)
+    }, 500)
+  }
+  const cancelPress = () => {
+    if (timerRef.current) window.clearTimeout(timerRef.current)
+    timerRef.current = null
+  }
 
   return (
     <button
       type="button"
-      onClick={onSelect}
-      className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-2xl transition-transform duration-200 hover:translate-x-0.5 px-2.5 py-2.5 text-left transition-all duration-200 ${
+      onPointerDown={startPress}
+      onPointerUp={cancelPress}
+      onPointerLeave={cancelPress}
+      onPointerCancel={cancelPress}
+      onContextMenu={(event) => {
+        event.preventDefault()
+        onLongPress?.(chat, event.clientX, event.clientY)
+      }}
+      onClick={() => {
+        if (longPressedRef.current) {
+          longPressedRef.current = false
+          return
+        }
+        onSelect()
+      }}
+      className={`group relative flex w-full touch-none select-none items-center gap-3 overflow-hidden rounded-2xl transition-transform duration-200 hover:translate-x-0.5 px-2.5 py-2.5 text-left transition-all duration-200 ${
         active
           ? 'active-chat-glow border border-wa-green/25'
           : 'border border-transparent hover:border-white/[0.06] hover:bg-white/[0.035]'

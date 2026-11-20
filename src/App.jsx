@@ -6,11 +6,13 @@ import { useDesktopNotifications } from '@/hooks/useDesktopNotifications'
 import { useNotificationSound } from '@/hooks/useNotificationSound'
 import { usePresence } from '@/hooks/usePresence'
 import { useCall } from '@/hooks/useCall'
+import { useBlocked } from '@/hooks/useBlocked'
 import { supabase } from '@/lib/supabase'
 import { playSendSound } from '@/lib/sound'
 import AuthScreen from '@/pages/AuthScreen'
 import CallOverlay from '@/components/CallOverlay'
 import CallsPanel from '@/components/CallsPanel'
+import ContactCard from '@/components/ContactCard'
 import ChatWindow from '@/components/ChatWindow'
 import NewChatModal from '@/components/NewChatModal'
 import Navigation, { TabPlaceholder } from '@/components/Navigation'
@@ -113,11 +115,13 @@ function ChatApp() {
     history: callHistory,
     removeHistoryEntry,
   } = useCall(user)
+  const { blockedIds, isBlocked, block, unblock } = useBlocked(user)
   const [activeId, setActiveId] = useState(null)
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
   const [newChatOpen, setNewChatOpen] = useState(false)
   const [newGroupOpen, setNewGroupOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('chats')
+  const [contactCard, setContactCard] = useState(null)
   const [profileOpen, setProfileOpen] = useState(false)
   const [profileTab, setProfileTab] = useState('profile')
   const [uploading, setUploading] = useState(false)
@@ -159,6 +163,8 @@ function ChatApp() {
     deleteGroup,
     setDisappearingTimer,
     markRead,
+    markUnread,
+    clearChat,
     reactToMessage,
     editMessage,
     deleteMessage,
@@ -232,8 +238,9 @@ function ChatApp() {
       })),
     }
   })
+  const visibleContacts = contacts.filter((contact) => !blockedIds.has(contact.id))
   const forwardTargets = [
-    ...contacts.map((contact) => ({ ...contact, kind: 'contact' })),
+    ...visibleContacts.map((contact) => ({ ...contact, kind: 'contact' })),
     ...chatsWithPresence
       .filter((chat) => chat.isGroup)
       .map((chat) => ({
@@ -249,6 +256,10 @@ function ChatApp() {
 
   const handleCall = ({ withVideo = false } = {}) => {
     if (!activeChat || activeChat.isGroup) return
+    if (isBlocked(otherIdOf(activeChat))) {
+      showToast('You blocked this contact.')
+      return
+    }
     const peerId = activeChat.memberIds.find((id) => id !== user.id)
     if (!peerId) return
     startCall({
@@ -278,6 +289,10 @@ function ChatApp() {
 
   const handleSend = async (text, options) => {
     if (!activeId) return
+    if (isBlocked(otherIdOf(activeChat))) {
+      showToast('You blocked this contact.')
+      return
+    }
     if (soundOn) window.setTimeout(playSendSound, 0)
     const { error } = await sendMessage(activeId, text, null, {
       ...options,
@@ -471,6 +486,38 @@ function ChatApp() {
     return ok
   }
 
+  const otherIdOf = (chat) => chat?.memberIds?.find((id) => id !== user.id)
+
+  const handleToggleMuteChat = (id) => {
+    const key = `cw-muted:${id}`
+    const raw = window.localStorage.getItem(key)
+    const muted = Boolean(raw && raw !== '0')
+    window.localStorage.setItem(key, muted ? '0' : 'forever')
+    showToast(muted ? 'Notifications unmuted' : 'Notifications muted')
+  }
+
+  const handleToggleBlock = async (chat) => {
+    const otherId = otherIdOf(chat)
+    if (!otherId) return
+    if (isBlocked(otherId)) {
+      const ok = await unblock(otherId)
+      showToast(ok ? 'Contact unblocked' : 'Could not unblock')
+    } else {
+      const ok = await block(otherId)
+      showToast(ok ? 'Contact blocked' : 'Could not block')
+    }
+  }
+
+  const handleCopyUsername = async (chat) => {
+    const username = chat.members?.find((member) => member.id === otherIdOf(chat))?.username
+    if (!username) {
+      showToast('This contact has no username')
+      return
+    }
+    await navigator.clipboard?.writeText(`@${username}`)
+    showToast('Username copied')
+  }
+
   const handleSetTimer = async (timer) => {
     if (!activeId) return false
     const ok = await setDisappearingTimer(activeId, timer)
@@ -495,6 +542,19 @@ function ChatApp() {
         onSettings={() => openProfile('settings')}
         soundOn={soundOn}
         onToggleSound={toggleSound}
+        chatMenu={{
+          userId: user.id,
+          isBlocked,
+          onMarkRead: markRead,
+          onMarkUnread: markUnread,
+          onTogglePin: (id) => toggleId(setPinnedIds, id),
+          onToggleArchive: (id) => toggleId(setArchivedIds, id),
+          onToggleMute: handleToggleMuteChat,
+          onViewProfile: (chat) => setContactCard({ ...chat, userId: user.id }),
+          onToggleBlock: handleToggleBlock,
+          onCopyUsername: handleCopyUsername,
+          onClearChat: clearChat,
+        }}
         loading={chatsLoading}
         pinnedIds={pinnedIds}
         archivedIds={archivedIds}
@@ -523,7 +583,7 @@ function ChatApp() {
         onCall={handleCall}
         disappearingTimer={activeChat?.disappearingTimer || 'off'}
         onSetTimer={handleSetTimer}
-        contacts={contacts}
+        contacts={visibleContacts}
         onAddMember={handleAddMember}
         onRemoveMember={handleRemoveMember}
         onRenameGroup={handleRenameGroup}
@@ -560,16 +620,24 @@ function ChatApp() {
       )}
       {newChatOpen && (
         <NewChatModal
-          contacts={contacts}
+          contacts={visibleContacts}
           onClose={() => setNewChatOpen(false)}
           onPick={handlePick}
         />
       )}
       {newGroupOpen && (
         <NewGroupModal
-          contacts={contacts}
+          contacts={visibleContacts}
           onClose={() => setNewGroupOpen(false)}
           onCreate={handleCreateGroup}
+        />
+      )}
+      {contactCard && (
+        <ContactCard
+          chat={contactCard}
+          blocked={isBlocked(otherIdOf(contactCard))}
+          onClose={() => setContactCard(null)}
+          onToggleBlock={handleToggleBlock}
         />
       )}
       <CallOverlay

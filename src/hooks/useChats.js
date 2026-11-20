@@ -927,6 +927,31 @@ export function useChats(user, activeId) {
     [user]
   )
 
+  const markUnread = useCallback((conversationId) => {
+    setChats((prev) =>
+      prev.map((chat) =>
+        chat.id === conversationId
+          ? { ...chat, unread: Math.max(1, chat.unread), myReadAt: null }
+          : chat
+      )
+    )
+  }, [])
+
+  const clearChat = useCallback(
+    (conversationId) => {
+      if (!user) return
+      const chat = chatsRef.current.find((item) => item.id === conversationId)
+      if (!chat) return
+      chat.messages.forEach((message) => writeHidden(user.id, message.id))
+      setChats((prev) =>
+        prev.map((item) =>
+          item.id === conversationId ? { ...item, messages: [], lastTime: '' } : item
+        )
+      )
+    },
+    [user]
+  )
+
   const startChat = useCallback(
     async (otherId) => {
       if (!user) return null
@@ -1073,6 +1098,8 @@ export function useChats(user, activeId) {
     deleteGroup,
     setDisappearingTimer,
     markRead,
+    markUnread,
+    clearChat,
     reactToMessage,
     editMessage,
     deleteMessage,

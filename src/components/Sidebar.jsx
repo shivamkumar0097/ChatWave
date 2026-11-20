@@ -13,6 +13,7 @@ import {
   UserRound,
   Users,
 } from 'lucide-react'
+import ChatContextMenu from '@/components/ChatContextMenu'
 import ChatListItem from '@/components/ChatListItem'
 
 export default function Sidebar({
@@ -26,6 +27,7 @@ export default function Sidebar({
   onSettings,
   soundOn = true,
   onToggleSound,
+  chatMenu,
   loading = false,
   pinnedIds,
   archivedIds,
@@ -35,6 +37,7 @@ export default function Sidebar({
   const [tab, setTab] = useState('all')
   const [showArchived, setShowArchived] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [chatMenuState, setChatMenuState] = useState(null)
   const menuRef = useRef(null)
 
   useEffect(() => {
@@ -348,10 +351,36 @@ export default function Sidebar({
               active={chat.id === activeId}
               pinned={Boolean(pinnedIds?.has(chat.id))}
               onSelect={() => onSelect(chat.id)}
+              onLongPress={(target, x, y) => setChatMenuState({ chat: target, x, y })}
             />
           ))
         )}
       </div>
+
+      {chatMenuState && chatMenu && (() => {
+        const rawMuted = window.localStorage.getItem(`cw-muted:${chatMenuState.chat.id}`)
+        return (
+          <ChatContextMenu
+            chat={chatMenuState.chat}
+            x={chatMenuState.x}
+            y={chatMenuState.y}
+            pinned={Boolean(pinnedIds?.has(chatMenuState.chat.id))}
+            archived={Boolean(archivedIds?.has(chatMenuState.chat.id))}
+            muted={Boolean(rawMuted && rawMuted !== '0')}
+            blocked={Boolean(chatMenu.isBlocked?.(chatMenuState.chat.memberIds?.find((id) => id !== chatMenu.userId)))}
+            onClose={() => setChatMenuState(null)}
+            onMarkRead={() => chatMenu.onMarkRead(chatMenuState.chat.id)}
+            onMarkUnread={() => chatMenu.onMarkUnread(chatMenuState.chat.id)}
+            onTogglePin={() => chatMenu.onTogglePin(chatMenuState.chat.id)}
+            onToggleArchive={() => chatMenu.onToggleArchive(chatMenuState.chat.id)}
+            onToggleMute={() => chatMenu.onToggleMute(chatMenuState.chat.id)}
+            onViewProfile={() => chatMenu.onViewProfile(chatMenuState.chat)}
+            onToggleBlock={() => chatMenu.onToggleBlock(chatMenuState.chat)}
+            onCopyUsername={() => chatMenu.onCopyUsername(chatMenuState.chat)}
+            onClearChat={() => chatMenu.onClearChat(chatMenuState.chat.id)}
+          />
+        )
+      })()}
     </aside>
   )
 }

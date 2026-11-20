@@ -6,6 +6,7 @@ import {
   BellOff,
   LogOut,
   MessageSquarePlus,
+  Plus,
   Search,
   Settings,
   Sparkles,
@@ -31,6 +32,7 @@ export default function Sidebar({
   className = '',
 }) {
   const [query, setQuery] = useState('')
+  const [tab, setTab] = useState('all')
   const [showArchived, setShowArchived] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
@@ -57,6 +59,12 @@ export default function Sidebar({
   const filtered = chats
     .filter((chat) => Boolean(archivedIds?.has(chat.id)) === showArchived)
     .filter((chat) => chat.name.toLowerCase().includes(query.trim().toLowerCase()))
+    .filter((chat) => {
+      if (tab === 'unread') return (chat.unread || 0) > 0
+      if (tab === 'favorites') return Boolean(pinnedIds?.has(chat.id))
+      if (tab === 'groups') return Boolean(chat.isGroup)
+      return true
+    })
   const ordered = [...filtered].sort(
     (a, b) => Number(Boolean(pinnedIds?.has(b.id))) - Number(Boolean(pinnedIds?.has(a.id)))
   )
@@ -208,6 +216,46 @@ export default function Sidebar({
             /
           </kbd>
         </div>
+      </div>
+
+      <div className="animate-fade-up flex items-center gap-1.5 overflow-x-auto px-3 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {[
+          { key: 'all', label: 'All' },
+          { key: 'unread', label: 'Unread' },
+          { key: 'favorites', label: 'Favorites' },
+          { key: 'groups', label: 'Groups' },
+        ].map((item) => {
+          const active = tab === item.key
+          const count = item.key === 'unread' ? chats.filter((chat) => (chat.unread || 0) > 0).length : 0
+          return (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => setTab(item.key)}
+              className={`shrink-0 rounded-full border px-3 py-1.5 text-[11.5px] font-medium transition-colors ${
+                active
+                  ? 'border-wa-green/30 bg-wa-green/15 text-wa-green'
+                  : 'border-white/[0.06] bg-white/[0.025] text-wa-muted hover:bg-white/[0.05] hover:text-wa-text'
+              }`}
+            >
+              {item.label}
+              {count > 0 && (
+                <span className="ml-1.5 rounded-full bg-wa-green/20 px-1.5 py-0.5 text-[10px] font-semibold text-wa-green">
+                  {count}
+                </span>
+              )}
+            </button>
+          )
+        })}
+        <button
+          type="button"
+          onClick={onNewChat}
+          className="ml-auto grid h-7 w-7 shrink-0 place-items-center rounded-full border border-white/[0.08] bg-white/[0.04] text-wa-muted transition-colors hover:bg-white/[0.08] hover:text-white"
+          aria-label="New chat"
+          title="New chat"
+        >
+          <Plus size={15} />
+        </button>
       </div>
 
       {archivedCount > 0 || showArchived ? (

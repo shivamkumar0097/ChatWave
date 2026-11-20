@@ -10,6 +10,7 @@ import { useBlocked } from '@/hooks/useBlocked'
 import { useStatuses } from '@/hooks/useStatuses'
 import { supabase } from '@/lib/supabase'
 import { playSendSound } from '@/lib/sound'
+import AppLock from '@/components/AppLock'
 import AuthScreen from '@/pages/AuthScreen'
 import CallOverlay from '@/components/CallOverlay'
 import CallsPanel from '@/components/CallsPanel'
@@ -142,11 +143,43 @@ function ChatApp() {
   const [successNotice, setSuccessNotice] = useState('')
   const [theme, setTheme] = useState(() => window.localStorage.getItem('cw-theme') || 'dark')
   const awayFromHomeRef = useRef(false)
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches)
+  const [lockEnabled, setLockEnabled] = useState(
+    () => window.localStorage.getItem('cw-app-lock') === '1'
+  )
+  const [unlocked, setUnlocked] = useState(
+    () => window.localStorage.getItem('cw-app-lock') !== '1'
+  )
+  const [lockAction, setLockAction] = useState(null)
 
   useEffect(() => {
     document.documentElement.classList.toggle('light', theme === 'light')
     window.localStorage.setItem('cw-theme', theme)
   }, [theme])
+
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 767px)')
+    const handler = (event) => setIsMobile(event.matches)
+    query.addEventListener('change', handler)
+    return () => query.removeEventListener('change', handler)
+  }, [])
+
+  const handleToggleLock = () => setLockAction(lockEnabled ? 'disable' : 'set')
+
+  const handleLockSuccess = (pin) => {
+    if (lockAction === 'set') {
+      window.localStorage.setItem('cw-app-pin', pin)
+      window.localStorage.setItem('cw-app-lock', '1')
+      setLockEnabled(true)
+      setUnlocked(true)
+    } else if (lockAction === 'disable') {
+      window.localStorage.setItem('cw-app-lock', '0')
+      window.localStorage.removeItem('cw-app-pin')
+      setLockEnabled(false)
+      setUnlocked(true)
+    }
+    setLockAction(null)
+  }
 
   const [forwarding, setForwarding] = useState(null)
 
@@ -782,6 +815,9 @@ function ChatApp() {
           onToggleSound={toggleSound}
           theme={theme}
           onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+          isMobile={isMobile}
+          lockEnabled={lockEnabled}
+          onToggleLock={handleToggleLock}
           onClose={() => setProfileOpen(false)}
           onSaved={reload}
           onNotice={showSuccess}
@@ -808,6 +844,21 @@ function ChatApp() {
             <X size={13} />
           </button>
         </div>
+      )}
+
+      {isMobile && lockEnabled && !unlocked && !lockAction && (
+        <AppLock
+          mode="verify"
+          expectedPin={window.localStorage.getItem('cw-app-pin') || ''}
+          onSuccess={() => setUnlocked(true)}
+        />
+      )}
+      {isMobile && lockAction && (
+        <AppLock
+          mode={lockAction}
+          onSuccess={handleLockSuccess}
+          onCancel={() => setLockAction(null)}
+        />
       )}
     </div>
   )

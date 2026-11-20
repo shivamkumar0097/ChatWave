@@ -8,6 +8,7 @@ import {
   Check,
   CheckCheck,
   Loader2,
+  LockKeyhole,
   LogOut,
   Mail,
   Monitor,
@@ -107,6 +108,9 @@ export default function ProfileModal({
   onToggleSound,
   theme = 'dark',
   onToggleTheme,
+  isMobile = false,
+  lockEnabled = false,
+  onToggleLock,
   onClose,
   onSaved,
   onNotice,
@@ -600,6 +604,15 @@ export default function ProfileModal({
                   actionLabel="Open"
                   onToggle={() => setShowQr(true)}
                 />
+                {isMobile && (
+                  <SettingRow
+                    icon={LockKeyhole}
+                    title="Screen lock"
+                    description="Require a 4-digit PIN when opening ChatWave"
+                    value={lockEnabled}
+                    onToggle={onToggleLock}
+                  />
+                )}
                 <SettingRow
                   icon={theme === 'dark' ? Sun : Moon}
                   title="Light theme"

@@ -22,6 +22,8 @@ A polished, real-time chat application built with React, Vite, Tailwind CSS and 
 - **Profiles** — display name, avatar colour, uploaded avatar photo and a bio/about section.
 - **Calls** — free peer-to-peer 1:1 voice and video calls using WebRTC, with Supabase Realtime as the signaling layer, mute controls and call states.
 - **Notifications** — optional notification sounds and browser desktop notifications.
+- **Status updates** — post text or photo statuses that disappear after 24 hours, with view counts and a WhatsApp-style Status tab.
+- **Communities** — a Community tab listing all groups with member counts and quick access to create or open one.
 - **Block contacts** — long-press a chat for a WhatsApp-style menu with pin/archive/mute/block and more; blocked users disappear from search and cannot be messaged or called.
 - **Comfort controls** — sound toggle and reduced-motion support, stored in local storage.
 - **Responsive UI** — glassy dark theme that works on desktop and mobile.
@@ -75,6 +77,7 @@ Create a Supabase project, then open **SQL Editor** and run the SQL files in `su
 | `schema12.sql` | Username column and signup trigger update |
 | `schema13.sql` | Safer update grants, disappearing-timer RPC, message edit guard and unique usernames |
 | `schema16.sql` | Blocked users table and policies |
+| `schema17.sql` | Status updates, views, storage bucket and Realtime |
 
 Each migration is idempotent where possible (`if not exists` / `drop policy if exists`), so re-running one is safe. Make sure email/password sign-in is enabled in **Authentication → Providers**.
 
@@ -105,7 +108,7 @@ src/
 ├── App.jsx         App shell, chat state and all message actions
 ├── index.css       Tailwind theme and global styles
 └── main.jsx        React entry point
-supabase/           SQL migrations (schema.sql → schema16.sql)
+supabase/           SQL migrations (schema.sql → schema17.sql)
 public/             Logo, favicon and icons
 docs/               Screenshots used in this README
 ```

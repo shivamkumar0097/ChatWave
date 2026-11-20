@@ -7,11 +7,14 @@ import { useNotificationSound } from '@/hooks/useNotificationSound'
 import { usePresence } from '@/hooks/usePresence'
 import { useCall } from '@/hooks/useCall'
 import { useBlocked } from '@/hooks/useBlocked'
+import { useStatuses } from '@/hooks/useStatuses'
 import { supabase } from '@/lib/supabase'
 import { playSendSound } from '@/lib/sound'
 import AuthScreen from '@/pages/AuthScreen'
 import CallOverlay from '@/components/CallOverlay'
 import CallsPanel from '@/components/CallsPanel'
+import CommunityPanel from '@/components/CommunityPanel'
+import StatusPanel from '@/components/StatusPanel'
 import ContactCard from '@/components/ContactCard'
 import ChatWindow from '@/components/ChatWindow'
 import NewChatModal from '@/components/NewChatModal'
@@ -117,6 +120,14 @@ function ChatApp() {
     removeHistoryEntry,
   } = useCall(user)
   const { blockedIds, isBlocked, block, unblock } = useBlocked(user)
+  const {
+    groups: statusGroups,
+    loading: statusesLoading,
+    addText: addStatusText,
+    addImage: addStatusImage,
+    remove: removeStatus,
+    markViewed: markStatusViewed,
+  } = useStatuses(user)
   const [activeId, setActiveId] = useState(null)
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
   const [newChatOpen, setNewChatOpen] = useState(false)
@@ -557,6 +568,13 @@ function ChatApp() {
     showToast('Username copied')
   }
 
+  const handleOpenGroup = (id) => {
+    setActiveTab('chats')
+    setActiveId(id)
+    markRead(id)
+    setMobileChatOpen(true)
+  }
+
   const handleStartCallFromContact = (contact, withVideo = false) => {
     startCall({
       conversationId: null,
@@ -673,6 +691,22 @@ function ChatApp() {
             className={mobileChatOpen ? 'flex' : 'hidden md:flex'}
           />
           </>
+        ) : activeTab === 'status' ? (
+          <StatusPanel
+            groups={statusGroups}
+            myUserId={user.id}
+            loading={statusesLoading}
+            onAddText={addStatusText}
+            onAddImage={addStatusImage}
+            onRemove={removeStatus}
+            onViewed={markStatusViewed}
+          />
+        ) : activeTab === 'community' ? (
+          <CommunityPanel
+            groups={chatsWithPresence.filter((chat) => chat.isGroup)}
+            onOpenGroup={handleOpenGroup}
+            onCreate={() => setNewGroupOpen(true)}
+          />
         ) : activeTab === 'calls' ? (
           <CallsPanel
             history={callHistory}

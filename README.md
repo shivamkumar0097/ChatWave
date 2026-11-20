@@ -18,6 +18,7 @@ A polished, real-time chat application built with React, Vite, Tailwind CSS and 
 - **Attachments** — image uploads (up to 5 MB) and file uploads (up to 25 MB) via Supabase Storage, with captions and file details.
 - **Message actions** — edit, delete (for you / for everyone), star, forward, pin and archive.
 - **Profiles** — display name, avatar colour, uploaded avatar photo and a bio/about section.
+- **Calls** — free peer-to-peer 1:1 voice and video calls using WebRTC, with Supabase Realtime as the signaling layer, mute controls and call states.
 - **Notifications** — optional notification sounds and browser desktop notifications.
 - **Comfort controls** — sound toggle and reduced-motion support, stored in local storage.
 - **Responsive UI** — glassy dark theme that works on desktop and mobile.
@@ -69,6 +70,8 @@ Create a Supabase project, then open **SQL Editor** and run the SQL files in `su
 | `schema10.sql` | Group rename, admin transfer policies and Realtime for conversation changes |
 
 Each migration is idempotent where possible (`if not exists` / `drop policy if exists`), so re-running one is safe. Make sure email/password sign-in is enabled in **Authentication → Providers**.
+
+Calls use free public STUN servers and need microphone/camera permission plus HTTPS (localhost and Netlify both work). For calls behind restrictive NAT, add a TURN server to `VITE_TURN_URL`, `VITE_TURN_USERNAME` and `VITE_TURN_CREDENTIAL` in `.env`; calls are 1:1 only.
 
 ### 4. Run the app
 

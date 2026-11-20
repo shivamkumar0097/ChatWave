@@ -5,9 +5,11 @@ import { useChats } from '@/hooks/useChats'
 import { useDesktopNotifications } from '@/hooks/useDesktopNotifications'
 import { useNotificationSound } from '@/hooks/useNotificationSound'
 import { usePresence } from '@/hooks/usePresence'
+import { useCall } from '@/hooks/useCall'
 import { supabase } from '@/lib/supabase'
 import { playSendSound } from '@/lib/sound'
 import AuthScreen from '@/pages/AuthScreen'
+import CallOverlay from '@/components/CallOverlay'
 import ChatWindow from '@/components/ChatWindow'
 import NewChatModal from '@/components/NewChatModal'
 import NewGroupModal from '@/components/NewGroupModal'
@@ -95,6 +97,18 @@ function readIdSet(key) {
 
 function ChatApp() {
   const { user, loading, signOut } = useAuth()
+  const {
+    incoming,
+    call,
+    localStream,
+    remoteStream,
+    notice,
+    startCall,
+    acceptCall,
+    declineCall,
+    endCall,
+    toggleMute,
+  } = useCall(user)
   const [activeId, setActiveId] = useState(null)
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
   const [newChatOpen, setNewChatOpen] = useState(false)
@@ -216,6 +230,18 @@ function ChatApp() {
       })),
   ]
   const activeChat = chatsWithPresence.find((chat) => chat.id === activeId)
+
+  const handleCall = ({ withVideo = false } = {}) => {
+    if (!activeChat || activeChat.isGroup) return
+    const peerId = activeChat.memberIds.find((id) => id !== user.id)
+    if (!peerId) return
+    startCall({
+      conversationId: activeChat.id,
+      peerId,
+      peerName: activeChat.name,
+      withVideo,
+    })
+  }
 
   const handleSelect = (id) => {
     const target = chatsWithPresence.find((chat) => chat.id === id)
@@ -451,6 +477,7 @@ function ChatApp() {
         archived={activeChat ? archivedIds.has(activeChat.id) : false}
         onTogglePin={() => activeId && toggleId(setPinnedIds, activeId)}
         onToggleArchive={() => activeId && toggleId(setArchivedIds, activeId)}
+        onCall={handleCall}
         contacts={contacts}
         onAddMember={handleAddMember}
         onRemoveMember={handleRemoveMember}
@@ -492,6 +519,17 @@ function ChatApp() {
           onCreate={handleCreateGroup}
         />
       )}
+      <CallOverlay
+        incoming={incoming}
+        call={call}
+        localStream={localStream}
+        remoteStream={remoteStream}
+        notice={notice}
+        onAccept={acceptCall}
+        onDecline={declineCall}
+        onEnd={endCall}
+        onToggleMute={toggleMute}
+      />
       {profileOpen && (
         <ProfileModal
           user={user}

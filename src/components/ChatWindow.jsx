@@ -128,6 +128,7 @@ export default function ChatWindow({
   onRenameGroup,
   onTransferAdmin,
   onDeleteGroup,
+  onCall,
   className = '',
 }) {
   const scrollRef = useRef(null)
@@ -397,12 +398,26 @@ export default function ChatWindow({
           </p>
         </div>
         <div className="flex items-center gap-0.5 sm:gap-1">
-          <button type="button" className="icon-btn" aria-label="Video call">
-            <Video size={19} />
-          </button>
-          <button type="button" className="icon-btn hidden sm:grid" aria-label="Voice call">
-            <Phone size={18} />
-          </button>
+          {!chat.isGroup && (
+            <>
+              <button
+                type="button"
+                onClick={() => onCall?.({ withVideo: true })}
+                className="icon-btn"
+                aria-label="Video call"
+              >
+                <Video size={19} />
+              </button>
+              <button
+                type="button"
+                onClick={() => onCall?.({ withVideo: false })}
+                className="icon-btn hidden sm:grid"
+                aria-label="Voice call"
+              >
+                <Phone size={18} />
+              </button>
+            </>
+          )}
           <button
             type="button"
             onClick={() => (searchOpen ? setSearchOpen(false) : openSearch())}

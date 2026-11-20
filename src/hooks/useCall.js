@@ -23,6 +23,8 @@ const makeCallId = () =>
 const displayNameOf = (user) =>
   user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Someone'
 
+const descriptionOf = (description) => ({ type: description.type, sdp: description.sdp })
+
 export function useCall(user) {
   const [incoming, setIncoming] = useState(null)
   const [call, setCall] = useState(null)
@@ -67,11 +69,12 @@ export function useCall(user) {
         })
         peerChannelsRef.current.set(peerId, channel)
       }
-      await channel.send({
+      const result = await channel.send({
         type: 'broadcast',
         event: 'signal',
         payload: { ...payload, from: user.id, to: peerId },
       })
+      return result === 'ok'
     },
     [user]
   )
@@ -177,7 +180,13 @@ export function useCall(user) {
         if (!current || current.callId !== payload.callId) return
         const pc = pcRef.current
         if (!pc) return
-        await pc.setRemoteDescription({ type: 'answer', sdp: payload.sdp })
+        try {
+          await pc.setRemoteDescription(payload.sdp)
+        } catch {
+          showNotice('Call could not be connected')
+          cleanup(false)
+          return
+        }
         await applyPendingIce(pc)
         setCall((prev) => (prev ? { ...prev, phase: 'connecting' } : prev))
         return
@@ -280,14 +289,19 @@ export function useCall(user) {
       const pc = await preparePeer()
       const offer = await pc.createOffer()
       await pc.setLocalDescription(offer)
-      await sendSignal(peerId, {
+      const sent = await sendSignal(peerId, {
         type: 'offer',
         callId,
         conversationId,
-        sdp: pc.localDescription,
+        sdp: descriptionOf(pc.localDescription),
         fromName: displayNameOf(user),
         withVideo: info.withVideo,
       })
+      if (!sent) {
+        showNotice('Could not reach the other user')
+        cleanup(false)
+        return
+      }
 
       timerRef.current = window.setTimeout(() => {
         if (callRef.current?.phase === 'calling') {
@@ -327,12 +341,22 @@ export function useCall(user) {
     setCall(info)
 
     const pc = await preparePeer()
-    await pc.setRemoteDescription({ type: 'offer', sdp: offer.sdp })
+    try {
+      await pc.setRemoteDescription(offer.sdp)
+    } catch {
+      showNotice('Call could not be connected')
+      cleanup(false)
+      return
+    }
     await applyPendingIce(pc)
     const answer = await pc.createAnswer()
     await pc.setLocalDescription(answer)
-    await sendSignal(info.peerId, { type: 'answer', callId: info.callId, sdp: pc.localDescription })
-  }, [getStream, preparePeer, applyPendingIce, sendSignal, showNotice])
+    await sendSignal(info.peerId, {
+      type: 'answer',
+      callId: info.callId,
+      sdp: descriptionOf(pc.localDescription),
+    })
+  }, [getStream, preparePeer, applyPendingIce, sendSignal, showNotice, cleanup])
 
   const declineCall = useCallback(async () => {
     const offer = incomingRef.current

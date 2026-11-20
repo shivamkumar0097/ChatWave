@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Mic, MicOff, PhoneOff, Video } from 'lucide-react'
+import { Mic, MicOff, Phone, PhoneOff, Video } from 'lucide-react'
 
 const formatDuration = (total) => {
   const minutes = Math.floor(total / 60)
@@ -51,111 +51,123 @@ export default function CallOverlay({
   if (!incoming && !call && !notice) return null
 
   const seconds = call?.startedAt ? Math.max(0, Math.floor((now - call.startedAt) / 1000)) : 0
+  const callBackground =
+    'bg-[radial-gradient(circle_at_50%_0%,#1d3b32_0%,#0d1a16_55%,#050a08_100%)]'
 
   return (
     <>
       {incoming && (
-        <div className="animate-fade-in fixed inset-0 z-[120] flex items-center justify-center bg-black/75 p-4 backdrop-blur-md">
-          <div className="glass-strong animate-pop-in w-full max-w-xs rounded-3xl p-6 text-center shadow-[0_30px_80px_-30px_rgba(0,0,0,0.95)]">
-            <div className="ring-gradient mx-auto w-fit rounded-full p-[2px]">
-              <div className="grid h-20 w-20 place-items-center rounded-full bg-[#11141f] text-xl font-semibold">
+        <div
+          className={`animate-fade-in fixed inset-0 z-[120] flex flex-col items-center justify-between px-6 py-14 text-white ${callBackground}`}
+        >
+          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-200/60">
+            ChatWave
+          </p>
+
+          <div className="flex flex-col items-center gap-5 text-center">
+            <div className="relative grid place-items-center">
+              <span className="absolute h-56 w-56 animate-ping rounded-full bg-emerald-400/10" />
+              <span className="absolute h-44 w-44 rounded-full border border-emerald-300/15" />
+              <div className="grid h-28 w-28 place-items-center rounded-full bg-gradient-to-br from-emerald-400/40 to-teal-500/20 text-3xl font-semibold ring-4 ring-emerald-300/20">
                 {initialsOf(incoming.peerName)}
               </div>
             </div>
-            <h2 className="mt-4 truncate text-[18px] font-semibold">{incoming.peerName}</h2>
-            <p className="mt-1 flex items-center justify-center gap-1.5 text-[12px] text-wa-muted">
-              {incoming.withVideo ? <Video size={14} /> : <Mic size={14} />}
-              Incoming {incoming.withVideo ? 'video' : 'audio'} call
+            <h2 className="text-[30px] font-medium tracking-tight">{incoming.peerName}</h2>
+            <p className="flex items-center gap-1.5 text-[13px] text-emerald-100/70">
+              {incoming.withVideo ? <Video size={15} /> : <Mic size={15} />}
+              Incoming {incoming.withVideo ? 'video' : 'voice'} call...
             </p>
-            <div className="mt-6 flex items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={onDecline}
-                className="grid h-12 w-12 place-items-center rounded-full bg-red-500/20 text-red-200 transition-colors hover:bg-red-500/35"
-                aria-label="Decline call"
-              >
-                <PhoneOff size={20} />
-              </button>
-              <button
-                type="button"
-                onClick={onAccept}
-                className="btn-accent grid h-12 w-12 place-items-center rounded-full text-white"
-                aria-label="Accept call"
-              >
-                <Mic size={20} />
-              </button>
-            </div>
+          </div>
+
+          <div className="flex w-full max-w-xs items-start justify-center gap-16">
+            <button type="button" onClick={onDecline} className="flex flex-col items-center gap-2">
+              <span className="grid h-16 w-16 place-items-center rounded-full bg-red-500 shadow-[0_12px_30px_-8px_rgba(239,68,68,0.8)] transition-transform hover:scale-105">
+                <PhoneOff size={26} />
+              </span>
+              <span className="text-[12px] text-white/70">Decline</span>
+            </button>
+            <button type="button" onClick={onAccept} className="flex flex-col items-center gap-2">
+              <span className="grid h-16 w-16 place-items-center rounded-full bg-emerald-500 shadow-[0_12px_30px_-8px_rgba(16,185,129,0.8)] transition-transform hover:scale-105">
+                <Phone size={26} />
+              </span>
+              <span className="text-[12px] text-white/70">Answer</span>
+            </button>
           </div>
         </div>
       )}
 
       {call && (
-        <div className="animate-fade-in fixed inset-0 z-[120] flex flex-col items-center justify-center bg-[#05060c]/95 p-4 backdrop-blur-xl">
-          <div className="relative flex w-full max-w-3xl flex-col items-center justify-center gap-6">
-            {call.withVideo && (
-              <div className="relative w-full">
+        <div
+          className={`animate-fade-in fixed inset-0 z-[120] flex flex-col items-center justify-center gap-8 px-6 py-10 text-white ${callBackground}`}
+        >
+          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-200/60">
+            {call.role === 'caller' ? 'Calling' : 'In call'}
+          </p>
+
+          {call.withVideo && (
+            <div className="relative w-full max-w-3xl">
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                className="max-h-[64vh] w-full rounded-3xl bg-black object-contain shadow-2xl"
+              />
+              {localStream && (
                 <video
-                  ref={remoteVideoRef}
+                  ref={localVideoRef}
                   autoPlay
                   playsInline
-                  className="max-h-[68vh] w-full rounded-3xl bg-black object-contain shadow-2xl"
+                  muted
+                  className="absolute bottom-3 right-3 h-28 w-20 rounded-xl border border-white/15 bg-black object-cover shadow-lg"
                 />
-                {localStream && (
-                  <video
-                    ref={localVideoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="absolute bottom-3 right-3 h-28 w-20 rounded-xl border border-white/15 bg-black object-cover shadow-lg"
-                  />
-                )}
-              </div>
-            )}
+              )}
+            </div>
+          )}
 
-            {!call.withVideo && (
-              <>
-                {remoteStream && <audio ref={remoteAudioRef} autoPlay playsInline />}
-                <div className="ring-gradient rounded-full p-[3px]">
-                  <div className="grid h-28 w-28 place-items-center rounded-full bg-[#11141f] text-3xl font-semibold">
-                    {initialsOf(call.peerName)}
-                  </div>
+          {!call.withVideo && (
+            <>
+              {remoteStream && <audio ref={remoteAudioRef} autoPlay playsInline />}
+              <div className="relative grid place-items-center">
+                <span className="absolute h-44 w-44 rounded-full border border-emerald-300/10" />
+                <div className="grid h-28 w-28 place-items-center rounded-full bg-gradient-to-br from-emerald-400/40 to-teal-500/20 text-3xl font-semibold ring-4 ring-emerald-300/20">
+                  {initialsOf(call.peerName)}
                 </div>
-              </>
-            )}
+              </div>
+            </>
+          )}
 
-            <div className="text-center">
-              <h2 className="text-[20px] font-semibold tracking-tight">{call.peerName}</h2>
-              <p className="mt-1 text-[12.5px] text-wa-muted">
-                {call.phase === 'connected'
-                  ? formatDuration(seconds)
-                  : call.phase === 'calling'
-                    ? 'Calling...'
-                    : 'Connecting...'}
-              </p>
-            </div>
+          <div className="text-center">
+            <h2 className="text-[26px] font-medium tracking-tight">{call.peerName}</h2>
+            <p className="mt-1 text-[13px] text-emerald-100/70">
+              {call.phase === 'connected'
+                ? formatDuration(seconds)
+                : call.phase === 'calling'
+                  ? 'Ringing...'
+                  : 'Connecting...'}
+            </p>
+          </div>
 
-            <div className="flex items-center gap-4">
-              <button
-                type="button"
-                onClick={onToggleMute}
-                className={`grid h-12 w-12 place-items-center rounded-full border transition-colors ${
-                  call.muted
-                    ? 'border-white/10 bg-white/10 text-white'
-                    : 'border-white/10 bg-white/[0.04] text-wa-text hover:bg-white/10'
+          <div className="flex w-full max-w-xs items-start justify-center gap-16">
+            <button
+              type="button"
+              onClick={onToggleMute}
+              className="flex flex-col items-center gap-2"
+            >
+              <span
+                className={`grid h-14 w-14 place-items-center rounded-full transition-transform hover:scale-105 ${
+                  call.muted ? 'bg-white/20' : 'bg-white/10'
                 }`}
-                aria-label={call.muted ? 'Unmute microphone' : 'Mute microphone'}
               >
-                {call.muted ? <MicOff size={19} /> : <Mic size={19} />}
-              </button>
-              <button
-                type="button"
-                onClick={onEnd}
-                className="grid h-12 w-12 place-items-center rounded-full bg-red-500 text-white transition-colors hover:bg-red-400"
-                aria-label="End call"
-              >
-                <PhoneOff size={20} />
-              </button>
-            </div>
+                {call.muted ? <MicOff size={22} /> : <Mic size={22} />}
+              </span>
+              <span className="text-[12px] text-white/70">{call.muted ? 'Unmute' : 'Mute'}</span>
+            </button>
+            <button type="button" onClick={onEnd} className="flex flex-col items-center gap-2">
+              <span className="grid h-14 w-14 place-items-center rounded-full bg-red-500 shadow-[0_12px_30px_-8px_rgba(239,68,68,0.8)] transition-transform hover:scale-105">
+                <PhoneOff size={22} />
+              </span>
+              <span className="text-[12px] text-white/70">End</span>
+            </button>
           </div>
         </div>
       )}

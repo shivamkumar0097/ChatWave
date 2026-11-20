@@ -6,6 +6,7 @@ import { useDesktopNotifications } from '@/hooks/useDesktopNotifications'
 import { useNotificationSound } from '@/hooks/useNotificationSound'
 import { usePresence } from '@/hooks/usePresence'
 import { useCall } from '@/hooks/useCall'
+import { useStories } from '@/hooks/useStories'
 import { supabase } from '@/lib/supabase'
 import { playSendSound } from '@/lib/sound'
 import AuthScreen from '@/pages/AuthScreen'
@@ -14,6 +15,7 @@ import ChatWindow from '@/components/ChatWindow'
 import NewChatModal from '@/components/NewChatModal'
 import NewGroupModal from '@/components/NewGroupModal'
 import ProfileModal from '@/components/ProfileModal'
+import StoryModal from '@/components/StoryModal'
 import Avatar from '@/components/Avatar'
 
 function ForwardModal({ targets, preview, onClose, onPick }) {
@@ -109,10 +111,21 @@ function ChatApp() {
     endCall,
     toggleMute,
   } = useCall(user)
+  const {
+    groups: storyGroups,
+    loading: storiesLoading,
+    addTextStory,
+    addImageStory,
+    deleteStory,
+    markViewed,
+  } = useStories(user)
   const [activeId, setActiveId] = useState(null)
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
   const [newChatOpen, setNewChatOpen] = useState(false)
   const [newGroupOpen, setNewGroupOpen] = useState(false)
+  const [storyMode, setStoryMode] = useState(null)
+  const [storyGroup, setStoryGroup] = useState(null)
+  const [storyIndex, setStoryIndex] = useState(0)
   const [profileOpen, setProfileOpen] = useState(false)
   const [profileTab, setProfileTab] = useState('profile')
   const [uploading, setUploading] = useState(false)
@@ -465,6 +478,24 @@ function ChatApp() {
     return ok
   }
 
+  const handleStoryCreate = () => {
+    setStoryGroup({
+      userId: user.id,
+      name: me.name,
+      avatarUrl: me.avatarUrl,
+      avatarColor: me.color,
+      stories: [],
+    })
+    setStoryMode('create')
+  }
+
+  const handleStoryOpen = (group, index) => {
+    setStoryGroup(group)
+    setStoryIndex(index)
+    setStoryMode('view')
+    if (group.userId !== user.id) markViewed(group.stories[index]?.id)
+  }
+
   const handleSetTimer = async (timer) => {
     if (!activeId) return false
     const ok = await setDisappearingTimer(activeId, timer)
@@ -485,6 +516,11 @@ function ChatApp() {
         onSettings={() => openProfile('settings')}
         soundOn={soundOn}
         onToggleSound={toggleSound}
+        userId={user.id}
+        stories={storyGroups}
+        storiesLoading={storiesLoading}
+        onStoryCreate={handleStoryCreate}
+        onStoryOpen={handleStoryOpen}
         loading={chatsLoading}
         pinnedIds={pinnedIds}
         archivedIds={archivedIds}
@@ -549,6 +585,18 @@ function ChatApp() {
           contacts={contacts}
           onClose={() => setNewGroupOpen(false)}
           onCreate={handleCreateGroup}
+        />
+      )}
+      {storyMode && storyGroup && (
+        <StoryModal
+          mode={storyMode}
+          group={storyGroup}
+          index={storyIndex}
+          onClose={() => setStoryMode(null)}
+          onAddText={addTextStory}
+          onAddImage={addImageStory}
+          onDelete={deleteStory}
+          onViewed={markViewed}
         />
       )}
       <CallOverlay

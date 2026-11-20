@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState } from 'react'
-import { Forward as ForwardIcon, ImagePlus, Loader2, Send, X } from 'lucide-react'
+import { Check, Forward as ForwardIcon, ImagePlus, Loader2, Send, X } from 'lucide-react'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { useChats } from '@/hooks/useChats'
 import { useDesktopNotifications } from '@/hooks/useDesktopNotifications'
@@ -117,6 +117,7 @@ function ChatApp() {
   const [profileTab, setProfileTab] = useState('profile')
   const [uploading, setUploading] = useState(false)
   const [toast, setToast] = useState('')
+  const [successNotice, setSuccessNotice] = useState('')
   const [forwarding, setForwarding] = useState(null)
   const [soundOn, setSoundOn] = useState(
     () => typeof window === 'undefined' || window.localStorage.getItem('cw-sound') !== 'off'
@@ -272,6 +273,11 @@ function ChatApp() {
   const showToast = (message) => {
     setToast(message)
     window.setTimeout(() => setToast(''), 3500)
+  }
+
+  const showSuccess = (message) => {
+    setSuccessNotice(message)
+    window.setTimeout(() => setSuccessNotice(''), 3000)
   }
 
   const handleSendAttachment = async (file, options = {}) => {
@@ -456,6 +462,11 @@ function ChatApp() {
     return ok
   }
 
+  const handleProfileSaved = async () => {
+    await reload()
+    showSuccess('Profile updated successfully')
+  }
+
   return (
     <div className="flex h-full overflow-hidden bg-wa-bg">
       <Sidebar
@@ -558,9 +569,16 @@ function ChatApp() {
           soundOn={soundOn}
           onToggleSound={toggleSound}
           onClose={() => setProfileOpen(false)}
-          onSaved={reload}
+          onSaved={handleProfileSaved}
+          onError={showToast}
           onSignOut={signOut}
         />
+      )}
+      {successNotice && (
+        <div className="animate-pop-in fixed bottom-6 left-1/2 z-[110] flex -translate-x-1/2 items-center gap-2.5 rounded-2xl border border-wa-green/25 bg-[#0f2018]/95 px-4 py-2.5 text-[12px] text-emerald-200 shadow-2xl backdrop-blur">
+          <Check size={15} className="shrink-0 text-wa-green" />
+          {successNotice}
+        </div>
       )}
       {toast && (
         <div className="animate-pop-in fixed bottom-6 left-1/2 z-[80] flex -translate-x-1/2 items-center gap-2.5 rounded-2xl border border-red-400/25 bg-[#1a1020]/95 px-4 py-2.5 text-[12px] text-red-200 shadow-2xl backdrop-blur">

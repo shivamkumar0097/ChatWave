@@ -96,6 +96,7 @@ export default function ProfileModal({
   onToggleSound,
   onClose,
   onSaved,
+  onError,
   onSignOut,
 }) {
   const [tab, setTab] = useState(initialTab)
@@ -157,6 +158,9 @@ export default function ProfileModal({
       setError('Username must be 3-20 characters: letters, numbers, . or _ (no spaces).')
       return
     }
+
+    onClose?.()
+
     if (handle && supabase) {
       const { data: taken } = await supabase
         .from('profiles')
@@ -166,7 +170,7 @@ export default function ProfileModal({
         .limit(1)
       if (taken?.length) {
         setBusy(false)
-        setError('That username is already taken.')
+        onError?.('That username is already taken.')
         return
       }
     }
@@ -183,7 +187,7 @@ export default function ProfileModal({
 
       if (uploadError) {
         setBusy(false)
-        setError(uploadError.message)
+        onError?.(uploadError.message)
         return
       }
 
@@ -213,7 +217,7 @@ export default function ProfileModal({
       const retry = await supabase.from('profiles').update(legacy).eq('id', user.id)
       if (retry.error) {
         setBusy(false)
-        setError(retry.error.message)
+        onError?.(retry.error.message)
         return
       }
       setNote('Some profile fields were not saved — run the latest schema migrations.')
@@ -226,7 +230,6 @@ export default function ProfileModal({
     setRemoved(false)
     if (fileRef.current) fileRef.current.value = ''
     await onSaved?.()
-    window.setTimeout(() => setSaved(false), 2600)
   }
 
   const toggleReadReceipts = () => {

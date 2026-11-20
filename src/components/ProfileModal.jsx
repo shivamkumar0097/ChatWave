@@ -26,6 +26,7 @@ import {
 import Avatar from '@/components/Avatar'
 import { supabase } from '@/lib/supabase'
 import { makeQrDataUrl } from '@/lib/qr'
+import { disablePush, enablePush, isPushEnabled } from '@/lib/push'
 
 const USERNAME_PATTERN = /^[a-z0-9._]{3,20}$/
 
@@ -123,6 +124,7 @@ export default function ProfileModal({
   const [username, setUsername] = useState(currentUsername || '')
   const [showQr, setShowQr] = useState(false)
   const [qrUrl, setQrUrl] = useState('')
+  const [pushEnabled, setPushEnabled] = useState(false)
   const [bio, setBio] = useState(currentBio || '')
   const [color, setColor] = useState(currentColor || '#7c5cff')
   const [preview, setPreview] = useState('')
@@ -140,6 +142,16 @@ export default function ProfileModal({
   const fileRef = useRef(null)
 
   const displayAvatar = removed ? '' : preview || currentAvatarUrl || ''
+
+  useEffect(() => {
+    let active = true
+    isPushEnabled().then((value) => {
+      if (active) setPushEnabled(value)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -264,6 +276,20 @@ export default function ProfileModal({
     setRemoved(false)
     if (fileRef.current) fileRef.current.value = ''
     await onSaved?.()
+  }
+
+  const togglePush = async () => {
+    try {
+      if (pushEnabled) {
+        await disablePush(user)
+        setPushEnabled(false)
+      } else {
+        await enablePush(user)
+        setPushEnabled(true)
+      }
+    } catch (error) {
+      onError?.(error?.message || 'Could not update push notifications.')
+    }
   }
 
   const toggleReadReceipts = () => {
@@ -619,6 +645,13 @@ export default function ProfileModal({
                   description="Switch between dark and light appearance"
                   value={theme === 'light'}
                   onToggle={onToggleTheme}
+                />
+                <SettingRow
+                  icon={Bell}
+                  title="Push notifications"
+                  description="Get alerts even when the app is closed"
+                  value={pushEnabled}
+                  onToggle={togglePush}
                 />
                 <SettingRow
                   icon={soundOn ? Bell : BellOff}

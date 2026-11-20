@@ -8,6 +8,12 @@ if (window.localStorage.getItem('cw-theme') === 'light') {
   document.documentElement.classList.add('light')
 }
 
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {})
+  })
+}
+
 const coarsePointer = () => window.matchMedia?.('(pointer: coarse)').matches
 
 const blockPinch = (event) => {

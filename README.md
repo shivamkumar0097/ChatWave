@@ -21,7 +21,8 @@ A polished, real-time chat application built with React, Vite, Tailwind CSS and 
 - **Disappearing messages** — per-chat setting for **Off**, **24 hours** (auto-hide one day after sending) or **After viewing** (a message disappears as soon as it is seen). The setting applies to new messages.
 - **Profiles** — display name, avatar colour, uploaded avatar photo and a bio/about section.
 - **Calls** — free peer-to-peer 1:1 voice and video calls using WebRTC, with Supabase Realtime as the signaling layer, mute controls and call states.
-- **Notifications** — optional notification sounds and browser desktop notifications.
+- **Notifications** — optional notification sounds, browser desktop notifications and Web Push for the installed app.
+- **Installable app (PWA)** — full-screen standalone mode with a home-screen icon and offline app shell.
 - **Status updates** — post text or photo statuses that disappear after 24 hours, with view counts and a WhatsApp-style Status tab.
 - **Communities** — a Community tab listing all groups with member counts and quick access to create or open one.
 - **Block contacts** — long-press a chat for a WhatsApp-style menu with pin/archive/mute/block and more; blocked users disappear from search and cannot be messaged or called.
@@ -78,10 +79,13 @@ Create a Supabase project, then open **SQL Editor** and run the SQL files in `su
 | `schema13.sql` | Safer update grants, disappearing-timer RPC, message edit guard and unique usernames |
 | `schema16.sql` | Blocked users table and policies |
 | `schema17.sql` | Status updates, views, storage bucket and Realtime |
+| `schema18.sql` | Web push subscription table and policies |
 
 Each migration is idempotent where possible (`if not exists` / `drop policy if exists`), so re-running one is safe. Make sure email/password sign-in is enabled in **Authentication → Providers**.
 
 Calls use free public STUN servers and need microphone/camera permission plus HTTPS (localhost and Netlify both work). For calls behind restrictive NAT, add a TURN server to `VITE_TURN_URL`, `VITE_TURN_USERNAME` and `VITE_TURN_CREDENTIAL` in `.env`; calls are 1:1 only.
+
+For PWA + background push: run `schema18.sql`, deploy to Netlify, and set `VITE_VAPID_PUBLIC_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `WEBHOOK_SECRET`, `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in Netlify environment variables. Then create a Supabase Database Webhook on `messages` (INSERT) pointing to `https://<your-site>/.netlify/functions/notify` with header `x-webhook-secret` equal to `WEBHOOK_SECRET`. Install via the browser's "Add to Home Screen" and enable Push notifications in Settings.
 
 ### 4. Run the app
 
@@ -108,7 +112,7 @@ src/
 ├── App.jsx         App shell, chat state and all message actions
 ├── index.css       Tailwind theme and global styles
 └── main.jsx        React entry point
-supabase/           SQL migrations (schema.sql → schema17.sql)
+supabase/           SQL migrations (schema.sql → schema18.sql)
 public/             Logo, favicon and icons
 docs/               Screenshots used in this README
 ```

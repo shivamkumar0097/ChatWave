@@ -557,6 +557,19 @@ function ChatApp() {
     showToast('Username copied')
   }
 
+  const handleStartCallFromContact = (contact, withVideo = false) => {
+    startCall({
+      conversationId: null,
+      peerId: contact.id,
+      peerName: contact.name,
+      peerAvatar: contact.avatarUrl,
+      peerColor: contact.avatarColor,
+      selfAvatar: me.avatarUrl,
+      selfColor: me.color,
+      withVideo,
+    })
+  }
+
   const handleQrPick = async (username) => {
     setScannerOpen(false)
     const clean = String(username || '').trim().toLowerCase()
@@ -661,7 +674,12 @@ function ChatApp() {
           />
           </>
         ) : activeTab === 'calls' ? (
-          <CallsPanel history={callHistory} onRemove={removeHistoryEntry} />
+          <CallsPanel
+            history={callHistory}
+            onRemove={removeHistoryEntry}
+            contacts={visibleContacts}
+            onStartCall={handleStartCallFromContact}
+          />
         ) : (
           <TabPlaceholder tab={activeTab} />
         )}

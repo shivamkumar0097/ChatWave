@@ -298,7 +298,10 @@ export default function StatusPanel({ groups, myUserId, loading, onAddText, onAd
           </div>
           <button
             type="button"
-            onClick={() => move(-1)}
+            onClick={(event) => {
+              event.stopPropagation()
+              move(-1)
+            }}
             className="absolute left-4 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white"
             aria-label="Previous status"
           >
@@ -306,7 +309,10 @@ export default function StatusPanel({ groups, myUserId, loading, onAddText, onAd
           </button>
           <button
             type="button"
-            onClick={() => move(1)}
+            onClick={(event) => {
+              event.stopPropagation()
+              move(1)
+            }}
             className="absolute right-4 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white"
             aria-label="Next status"
           >

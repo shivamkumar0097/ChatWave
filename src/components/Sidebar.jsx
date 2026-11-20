@@ -352,14 +352,6 @@ export default function Sidebar({
           ))
         )}
       </div>
-
-      <footer className="animate-fade-up flex items-center justify-between border-t border-white/[0.05] px-4 py-3 text-[11px] text-wa-muted">
-        <span>ChatWave 2026</span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-wa-green" />
-          real-time
-        </span>
-      </footer>
     </aside>
   )
 }

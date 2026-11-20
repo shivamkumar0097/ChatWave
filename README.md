@@ -2,6 +2,10 @@
 
 A polished, real-time chat application built with React, Vite, Tailwind CSS and Supabase. It ships with a responsive dark interface, authentication, live messaging, presence, read receipts, attachments and a full set of message actions.
 
+![ChatWave sign-in page](docs/login.png)
+
+*ChatWave sign-in page — clean, responsive and focused on the conversation.*
+
 ## Features
 
 - **Authentication** — email/password sign up and sign in powered by Supabase Auth, with a password-strength indicator and protected app routes.
@@ -90,6 +94,7 @@ src/
 └── main.jsx        React entry point
 supabase/           SQL migrations (schema.sql → schema8.sql)
 public/             Logo, favicon and icons
+docs/               Screenshots used in this README
 ```
 
 ## Security notes

@@ -10,6 +10,7 @@ import {
   Settings,
   Sparkles,
   UserRound,
+  Users,
 } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import ChatListItem from '@/components/ChatListItem'
@@ -19,6 +20,7 @@ export default function Sidebar({
   activeId,
   onSelect,
   onNewChat,
+  onNewGroup,
   onSignOut,
   onProfile,
   onSettings,
@@ -69,6 +71,15 @@ export default function Sidebar({
       action: () => {
         setMenuOpen(false)
         onNewChat()
+      },
+    },
+    {
+      key: 'new-group',
+      icon: Users,
+      label: 'New group',
+      action: () => {
+        setMenuOpen(false)
+        onNewGroup?.()
       },
     },
     {
@@ -141,6 +152,14 @@ export default function Sidebar({
             aria-label="New chat"
           >
             <MessageSquarePlus size={20} />
+          </button>
+          <button
+            type="button"
+            onClick={onNewGroup}
+            className="icon-btn hidden text-wa-text hover:text-white sm:grid"
+            aria-label="New group"
+          >
+            <Users size={20} />
           </button>
           <button
             type="button"

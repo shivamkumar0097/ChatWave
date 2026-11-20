@@ -1,4 +1,4 @@
-﻿import { CheckCheck, Check, Pin } from 'lucide-react'
+﻿import { CheckCheck, Check, Pin, Users } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import EmojiText from '@/components/EmojiText'
 
@@ -29,12 +29,15 @@ export default function ChatListItem({ chat, active, pinned = false, onSelect })
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span
-            className={`truncate text-[15.5px] font-medium ${
-              active ? 'text-white' : 'text-wa-text'
-            }`}
-          >
-            {chat.name}
+          <span className="flex min-w-0 items-center gap-1.5">
+            {chat.isGroup && <Users size={12} className="shrink-0 text-wa-muted" />}
+            <span
+              className={`truncate text-[15.5px] font-medium ${
+                active ? 'text-white' : 'text-wa-text'
+              }`}
+            >
+              {chat.name}
+            </span>
           </span>
           <span className="flex shrink-0 items-center gap-1">
             {pinned && <Pin size={11} className="rotate-45 text-wa-muted" />}
@@ -67,6 +70,9 @@ export default function ChatListItem({ chat, active, pinned = false, onSelect })
                     <Check size={14} className="shrink-0 text-wa-muted/70" />
                   ))}
                 <span className="truncate">
+                  {chat.isGroup && last?.from === 'me' && !last.deleted && (
+                    <span className="shrink-0 text-wa-muted">You: </span>
+                  )}
                   {last?.deleted
                     ? 'Message deleted'
                     : last?.imageUrl && !last?.text

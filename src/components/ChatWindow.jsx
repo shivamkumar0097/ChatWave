@@ -19,12 +19,14 @@ import {
   Sparkles,
   Star,
   UserRound,
+  Users,
   Video,
   Waves,
   X,
 } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import Composer from '@/components/Composer'
+import GroupMembersModal from '@/components/GroupMembersModal'
 import MessageBubble from '@/components/MessageBubble'
 import PopoverMenu from '@/components/PopoverMenu'
 import { useTyping } from '@/hooks/useTyping'
@@ -120,6 +122,9 @@ export default function ChatWindow({
   onTogglePin,
   onToggleArchive,
   unreadAnchorId,
+  contacts = [],
+  onAddMember,
+  onRemoveMember,
   className = '',
 }) {
   const scrollRef = useRef(null)
@@ -130,6 +135,7 @@ export default function ChatWindow({
   const [editing, setEditing] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [infoOpen, setInfoOpen] = useState(false)
+  const [membersOpen, setMembersOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [starredOpen, setStarredOpen] = useState(false)
@@ -149,6 +155,7 @@ export default function ChatWindow({
     setEditing(null)
     setMenuOpen(false)
     setInfoOpen(false)
+    setMembersOpen(false)
     setSearchOpen(false)
     setSearchQuery('')
     setStarredOpen(false)
@@ -207,7 +214,7 @@ export default function ChatWindow({
 
   const exportChat = () => {
     const lines = (chat.messages || []).map((message) => {
-      const who = message.from === 'me' ? 'You' : chat.name
+      const who = authorNameOf(message)
       const body = message.deleted
         ? '[Message deleted]'
         : message.imageUrl && !message.text
@@ -237,6 +244,9 @@ export default function ChatWindow({
   const authorNameOf = (message) => {
     if (!message) return ''
     if (message.from === 'me') return 'You'
+    if (chat?.isGroup) {
+      return chat.members?.find((member) => member.id === message.senderId)?.name || 'Member'
+    }
     return chat?.name || 'Them'
   }
 
@@ -308,10 +318,12 @@ export default function ChatWindow({
   }
 
   const status = typing
-    ? `${typingNames[0]} is typing...`
-    : chat.online
-      ? 'online'
-      : formatLastSeen(chat.lastSeen)
+    ? `${typingNames.join(', ')} ${typingNames.length > 1 ? 'are' : 'is'} typing...`
+    : chat.isGroup
+      ? `${chat.members?.length || chat.memberIds?.length || 0} members`
+      : chat.online
+        ? 'online'
+        : formatLastSeen(chat.lastSeen)
 
   const wallpaperPreset = WALLPAPERS.find((item) => item.id === wallpaper) || WALLPAPERS[0]
   const query = searchQuery.trim().toLowerCase()
@@ -358,7 +370,7 @@ export default function ChatWindow({
           color={chat.avatarColor}
           src={chat.avatarUrl}
           size="sm"
-          online={chat.online}
+          online={!chat.isGroup && chat.online}
         />
         <div className="min-w-0 flex-1">
           <h1 className="flex items-center gap-1.5 truncate text-[16px] font-semibold tracking-tight">
@@ -413,6 +425,19 @@ export default function ChatWindow({
               anchorRef={menuRef}
               width={248}
             >
+              {chat.isGroup && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMembersOpen(true)
+                    setMenuOpen(false)
+                  }}
+                  className={menuButton}
+                >
+                  <Users size={17} className="text-wa-green" />
+                  <span className="flex-1">Group members</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -422,7 +447,7 @@ export default function ChatWindow({
                 className={menuButton}
               >
                 <UserRound size={17} className="text-wa-green" />
-                <span className="flex-1">View contact</span>
+                <span className="flex-1">{chat.isGroup ? 'Group info' : 'View contact'}</span>
               </button>
               <button type="button" onClick={openSearch} className={menuButton}>
                 <Search size={17} className="text-wa-green" />
@@ -557,7 +582,7 @@ export default function ChatWindow({
                   >
                     <span className="flex items-center justify-between gap-2">
                       <span className="text-[11.5px] font-semibold text-wa-green">
-                        {message.from === 'me' ? 'You' : chat.name}
+                        {authorNameOf(message)}
                       </span>
                       <span className="shrink-0 text-[10.5px] text-wa-muted">{message.time}</span>
                     </span>
@@ -589,7 +614,9 @@ export default function ChatWindow({
             </div>
             <p className="text-[13.5px] font-medium text-wa-text">No messages yet</p>
             <p className="max-w-[240px] text-[12px] leading-relaxed text-wa-muted">
-              Say hello to {chat.name} and start the conversation.
+              {chat.isGroup
+                ? 'Say hello to your group and start the conversation.'
+                : `Say hello to ${chat.name} and start the conversation.`}
             </p>
           </div>
         )}
@@ -631,6 +658,11 @@ export default function ChatWindow({
               starred={starredIds?.has(message.id)}
               replyTo={replyMap[message.replyTo] || null}
               replyAuthorName={authorNameOf(replyMap[message.replyTo])}
+              senderName={
+                chat.isGroup && message.from !== 'me'
+                  ? chat.members?.find((member) => member.id === message.senderId)?.name || 'Member'
+                  : null
+              }
             />
           )
         })}
@@ -675,10 +707,12 @@ export default function ChatWindow({
               onClick={(event) => event.stopPropagation()}
               role="dialog"
               aria-modal="true"
-              aria-label="Contact info"
+              aria-label={chat.isGroup ? 'Group info' : 'Contact info'}
             >
               <div className="flex items-center justify-between border-b border-white/[0.07] px-5 py-4">
-                <h3 className="text-[15px] font-semibold tracking-tight">Contact info</h3>
+                <h3 className="text-[15px] font-semibold tracking-tight">
+                  {chat.isGroup ? 'Group info' : 'Contact info'}
+                </h3>
                 <button
                   type="button"
                   onClick={() => setInfoOpen(false)}
@@ -694,19 +728,40 @@ export default function ChatWindow({
                   color={chat.avatarColor}
                   src={chat.avatarUrl}
                   size="xl"
-                  online={chat.online}
+                  online={!chat.isGroup && chat.online}
                 />
                 <h2 className="text-[19px] font-semibold tracking-tight">{chat.name}</h2>
-                <p className={`text-[12.5px] ${chat.online ? 'text-accent-2' : 'text-wa-muted'}`}>
-                  {chat.online ? 'online' : formatLastSeen(chat.lastSeen)}
+                <p className={`text-[12.5px] ${!chat.isGroup && chat.online ? 'text-accent-2' : 'text-wa-muted'}`}>
+                  {chat.isGroup
+                    ? `${chat.members?.length || chat.memberIds?.length || 0} members`
+                    : chat.online
+                      ? 'online'
+                      : formatLastSeen(chat.lastSeen)}
                 </p>
-                {chat.bio && (
+                {!chat.isGroup && chat.bio && (
                   <p className="max-w-[90%] text-center text-[12.5px] leading-relaxed text-wa-muted">
                     {chat.bio}
                   </p>
                 )}
               </div>
               <div className="mx-4 mb-4 overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02]">
+                {chat.isGroup && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMembersOpen(true)
+                      setInfoOpen(false)
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-white/[0.05]"
+                  >
+                    <Users size={18} className="text-wa-green" />
+                    <span className="flex-1 text-[13.5px] text-wa-text">Manage members</span>
+                    <span className="text-[12px] text-wa-muted">
+                      {chat.members?.length || chat.memberIds?.length || 0}
+                    </span>
+                  </button>
+                )}
+                {chat.isGroup && <div className="mx-4 h-px bg-white/[0.06]" />}
                 <button
                   type="button"
                   onClick={() => applyMute(muted ? null : 'forever')}
@@ -792,7 +847,7 @@ export default function ChatWindow({
                     >
                       <span className="flex items-center justify-between gap-2">
                         <span className="text-[11.5px] font-semibold text-wa-green">
-                          {message.from === 'me' ? 'You' : chat.name}
+                          {authorNameOf(message)}
                         </span>
                         <span className="shrink-0 text-[10.5px] text-wa-muted">{message.time}</span>
                       </span>
@@ -922,6 +977,23 @@ export default function ChatWindow({
               </div>
             </div>
           </div>,
+          document.body
+        )}
+
+      {membersOpen && chat.isGroup &&
+        createPortal(
+          <GroupMembersModal
+            chat={chat}
+            contacts={contacts}
+            isAdmin={chat.createdBy === user?.id}
+            onClose={() => setMembersOpen(false)}
+            onAdd={onAddMember}
+            onRemove={onRemoveMember}
+            onLeave={() => {
+              setMembersOpen(false)
+              onRemoveMember?.(user?.id)
+            }}
+          />,
           document.body
         )}
 

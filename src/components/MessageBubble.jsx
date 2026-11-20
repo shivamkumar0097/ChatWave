@@ -51,6 +51,7 @@ export default function MessageBubble({
   starred = false,
   replyTo,
   replyAuthorName,
+  senderName = null,
 }) {
   const mine = message.from === 'me'
   const [open, setOpen] = useState(false)
@@ -363,6 +364,9 @@ export default function MessageBubble({
           onMouseUp={clearPress}
           onMouseLeave={clearPress}
         >
+          {senderName && !message.deleted && (
+            <p className="mb-1 pl-1 text-[11px] font-semibold text-wa-green">{senderName}</p>
+          )}
           {bubble}
 
           <div

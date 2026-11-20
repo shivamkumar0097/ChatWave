@@ -10,10 +10,11 @@ import { playSendSound } from '@/lib/sound'
 import AuthScreen from '@/pages/AuthScreen'
 import ChatWindow from '@/components/ChatWindow'
 import NewChatModal from '@/components/NewChatModal'
+import NewGroupModal from '@/components/NewGroupModal'
 import ProfileModal from '@/components/ProfileModal'
 import Avatar from '@/components/Avatar'
 
-function ForwardModal({ contacts, preview, onClose, onPick }) {
+function ForwardModal({ targets, preview, onClose, onPick }) {
   const [busyId, setBusyId] = useState(null)
 
   return (
@@ -47,19 +48,19 @@ function ForwardModal({ contacts, preview, onClose, onPick }) {
         </div>
 
         <div className="max-h-72 overflow-y-auto p-2">
-          {contacts.length === 0 ? (
+          {targets.length === 0 ? (
             <p className="px-3 py-6 text-center text-[12.5px] text-wa-muted">
-              No contacts available to forward to.
+              No contacts or groups available to forward to.
             </p>
           ) : (
-            contacts.map((contact) => (
+            targets.map((contact) => (
               <button
-                key={contact.id}
+                key={`${contact.kind}-${contact.id}`}
                 type="button"
                 disabled={busyId !== null}
                 onClick={() => {
                   setBusyId(contact.id)
-                  onPick(contact.id)
+                  onPick(contact)
                 }}
                 className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-white/[0.05] disabled:opacity-50"
               >
@@ -97,6 +98,7 @@ function ChatApp() {
   const [activeId, setActiveId] = useState(null)
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
   const [newChatOpen, setNewChatOpen] = useState(false)
+  const [newGroupOpen, setNewGroupOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [profileTab, setProfileTab] = useState('profile')
   const [uploading, setUploading] = useState(false)
@@ -123,6 +125,9 @@ function ChatApp() {
     loading: chatsLoading,
     sendMessage,
     startChat,
+    startGroupChat,
+    addGroupMember,
+    removeGroupMember,
     markRead,
     reactToMessage,
     editMessage,
@@ -186,8 +191,27 @@ function ChatApp() {
   }
   const chatsWithPresence = chats.map((chat) => {
     const otherId = chat.memberIds.find((id) => id !== user.id)
-    return { ...chat, online: otherId ? onlineIds.has(otherId) : false }
+    return {
+      ...chat,
+      online: otherId ? onlineIds.has(otherId) : false,
+      members: (chat.members || []).map((member) => ({
+        ...member,
+        online: onlineIds.has(member.id),
+      })),
+    }
   })
+  const forwardTargets = [
+    ...contacts.map((contact) => ({ ...contact, kind: 'contact' })),
+    ...chatsWithPresence
+      .filter((chat) => chat.isGroup)
+      .map((chat) => ({
+        id: chat.id,
+        name: chat.name,
+        avatarUrl: chat.avatarUrl,
+        avatarColor: chat.avatarColor,
+        kind: 'group',
+      })),
+  ]
   const activeChat = chatsWithPresence.find((chat) => chat.id === activeId)
 
   const handleSelect = (id) => {
@@ -298,12 +322,12 @@ function ChatApp() {
     })
   }
 
-  const handleForwardPick = async (contactId) => {
+  const handleForwardPick = async (target) => {
     const message = forwarding
     setForwarding(null)
     if (!message) return
 
-    const id = await startChat(contactId)
+    const id = target.kind === 'group' ? target.id : await startChat(target.id)
     if (!id) {
       showToast('Could not forward the message.')
       return
@@ -333,6 +357,36 @@ function ChatApp() {
     }
   }
 
+  const handleCreateGroup = async (name, memberIds) => {
+    const id = await startGroupChat(name, memberIds)
+    if (!id) {
+      showToast('Could not create the group.')
+      return
+    }
+    setUnreadAnchor(null)
+    setActiveId(id)
+    markRead(id)
+    setMobileChatOpen(true)
+  }
+
+  const handleAddMember = async (memberId) => {
+    if (!activeId) return false
+    const ok = await addGroupMember(activeId, memberId)
+    if (!ok) showToast('Could not add the member.')
+    return ok
+  }
+
+  const handleRemoveMember = async (memberId) => {
+    if (!activeId) return false
+    const ok = await removeGroupMember(activeId, memberId)
+    if (!ok) showToast('Could not remove the member.')
+    if (ok && memberId === user.id) {
+      setActiveId(null)
+      setMobileChatOpen(false)
+    }
+    return ok
+  }
+
   return (
     <div className="flex h-full overflow-hidden bg-wa-bg">
       <Sidebar
@@ -340,6 +394,7 @@ function ChatApp() {
         activeId={activeId}
         onSelect={handleSelect}
         onNewChat={() => setNewChatOpen(true)}
+        onNewGroup={() => setNewGroupOpen(true)}
         onSignOut={signOut}
         onProfile={() => openProfile('profile')}
         onSettings={() => openProfile('settings')}
@@ -368,6 +423,9 @@ function ChatApp() {
         archived={activeChat ? archivedIds.has(activeChat.id) : false}
         onTogglePin={() => activeId && toggleId(setPinnedIds, activeId)}
         onToggleArchive={() => activeId && toggleId(setArchivedIds, activeId)}
+        contacts={contacts}
+        onAddMember={handleAddMember}
+        onRemoveMember={handleRemoveMember}
         unreadAnchorId={
           unreadAnchor && activeChat && unreadAnchor.chatId === activeChat.id
             ? unreadAnchor.messageId
@@ -377,7 +435,7 @@ function ChatApp() {
       />
       {forwarding && (
         <ForwardModal
-          contacts={contacts}
+          targets={forwardTargets}
           preview={
             forwarding.imageUrl && !forwarding.text
               ? '📷 Photo'
@@ -394,6 +452,13 @@ function ChatApp() {
           contacts={contacts}
           onClose={() => setNewChatOpen(false)}
           onPick={handlePick}
+        />
+      )}
+      {newGroupOpen && (
+        <NewGroupModal
+          contacts={contacts}
+          onClose={() => setNewGroupOpen(false)}
+          onCreate={handleCreateGroup}
         />
       )}
       {profileOpen && (

@@ -38,6 +38,34 @@ const otherReadAtFor = (rows, conversationId, myId) =>
       null
     )
 
+const readMapFor = (rows, conversationId) => {
+  const map = {}
+  for (const row of rows) {
+    if (row.conversation_id === conversationId) map[row.user_id] = row.last_read_at
+  }
+  return map
+}
+
+const statusFor = (createdAt, myId, memberIds, isGroup, readMap) => {
+  if (!isGroup) {
+    const otherReadAt = Object.entries(readMap || {}).find(([id]) => id !== myId)?.[1] ?? null
+    return otherReadAt && new Date(otherReadAt) >= new Date(createdAt) ? 'read' : 'delivered'
+  }
+  const others = (memberIds || []).filter((id) => id !== myId)
+  if (!others.length) return 'delivered'
+  return others.every(
+    (id) => readMap?.[id] && new Date(readMap[id]) >= new Date(createdAt)
+  )
+    ? 'read'
+    : 'delivered'
+}
+
+const readContextOf = (chat) => ({
+  memberIds: chat.memberIds || [],
+  isGroup: Boolean(chat.isGroup),
+  readMap: chat.readMap || {},
+})
+
 const groupReactions = (raw) => {
   const grouped = {}
   for (const emoji of Object.values(raw || {})) {
@@ -64,9 +92,10 @@ const writeHidden = (userId, messageId) => {
   window.localStorage.setItem(hiddenKey(userId), JSON.stringify(next))
 }
 
-const mapMessage = (row, myId, otherReadAt) => {
+const mapMessage = (row, myId, readContext = {}) => {
   const mine = row.sender_id === myId
   const deleted = Boolean(row.deleted_for_all)
+  const { memberIds = [], isGroup = false, readMap = {} } = readContext
   const rawReactions = deleted
     ? {}
     : row.reactions && typeof row.reactions === 'object'
@@ -74,6 +103,7 @@ const mapMessage = (row, myId, otherReadAt) => {
       : {}
   return {
     id: row.id,
+    senderId: row.sender_id,
     from: mine ? 'me' : 'them',
     text: deleted ? '' : row.content || '',
     imageUrl: deleted ? null : row.image_url || null,
@@ -90,11 +120,7 @@ const mapMessage = (row, myId, otherReadAt) => {
     forwarded: Boolean(row.forwarded),
     edited: Boolean(row.edited_at),
     deleted,
-    status: mine
-      ? otherReadAt && new Date(otherReadAt) >= new Date(row.created_at)
-        ? 'read'
-        : 'delivered'
-      : undefined,
+    status: mine ? statusFor(row.created_at, myId, memberIds, isGroup, readMap) : undefined,
   }
 }
 
@@ -104,10 +130,15 @@ export function useChats(user, activeId) {
   const [me, setMe] = useState(null)
   const [loading, setLoading] = useState(true)
   const activeRef = useRef(activeId)
+  const chatsRef = useRef(chats)
 
   useEffect(() => {
     activeRef.current = activeId
   }, [activeId])
+
+  useEffect(() => {
+    chatsRef.current = chats
+  }, [chats])
 
   const load = useCallback(async () => {
     if (!user) return
@@ -130,7 +161,7 @@ export function useChats(user, activeId) {
       fetchProfiles(),
       supabase
         .from('conversation_members')
-        .select('conversation_id, conversations(id, is_group, title)')
+        .select('conversation_id, conversations(id, is_group, title, created_by)')
         .eq('user_id', user.id),
     ])
 
@@ -210,18 +241,31 @@ export function useChats(user, activeId) {
     const hidden = new Set(readHidden(user.id))
 
     const built = conversations.map((conversation) => {
-      const members = memberRows.filter((row) => row.conversation_id === conversation.id)
-      const others = members.filter((row) => row.user_id !== user.id)
-      const other = others[0]?.profiles
+      const memberIds = memberRows
+        .filter((row) => row.conversation_id === conversation.id)
+        .map((row) => row.user_id)
+      const members = memberRows
+        .filter((row) => row.conversation_id === conversation.id)
+        .map((row) => ({
+          id: row.user_id,
+          name: row.profiles?.name || 'Member',
+          avatarColor: row.profiles?.avatar_color || colorFor(row.user_id),
+          avatarUrl: row.profiles?.avatar_url || null,
+          bio: row.profiles?.bio || '',
+        }))
+      const other = members.find((member) => member.id !== user.id)
+      const isGroup = Boolean(conversation.is_group)
       const name =
         conversation.title ||
-        others.map((row) => row.profiles?.name).filter(Boolean).join(', ') ||
+        members.filter((member) => member.id !== user.id).map((member) => member.name).join(', ') ||
         'Saved messages'
       const otherReadAt = otherReadAtFor(readRows, conversation.id, user.id)
+      const readMap = readMapFor(readRows, conversation.id)
       const myReadAt = myReadAtFor(readRows, conversation.id, user.id)
+      const readContext = { memberIds, isGroup, readMap }
       const messages = messageRows
         .filter((row) => row.conversation_id === conversation.id && !hidden.has(row.id))
-        .map((row) => mapMessage(row, user.id, otherReadAt))
+        .map((row) => mapMessage(row, user.id, readContext))
       const unread = messages.filter(
         (message) =>
           message.from === 'them' &&
@@ -231,14 +275,17 @@ export function useChats(user, activeId) {
       return {
         id: conversation.id,
         name,
-        avatarColor: other?.avatar_color || colorFor(conversation.id),
-        avatarUrl: other?.avatar_url || null,
-        bio: other?.bio || '',
-        isGroup: conversation.is_group,
-        memberIds: members.map((row) => row.user_id),
+        avatarColor: isGroup ? colorFor(conversation.id) : other?.avatarColor || colorFor(conversation.id),
+        avatarUrl: isGroup ? null : other?.avatarUrl || null,
+        bio: isGroup ? '' : other?.bio || '',
+        isGroup,
+        createdBy: conversation.created_by || null,
+        members,
+        memberIds,
         lastSeen: other?.last_seen ?? null,
         myReadAt,
         otherReadAt,
+        readMap,
         online: false,
         typing: false,
         unread,
@@ -311,7 +358,7 @@ export function useChats(user, activeId) {
                 myReadAt: isActive ? row.created_at : chat.myReadAt,
                 unread:
                   row.sender_id !== user.id && !isActive ? chat.unread + 1 : chat.unread,
-                messages: [...chat.messages, mapMessage(row, user.id, chat.otherReadAt)],
+                messages: [...chat.messages, mapMessage(row, user.id, readContextOf(chat))],
               }
             })
           )
@@ -333,7 +380,7 @@ export function useChats(user, activeId) {
                 ...chat,
                 messages: chat.messages.map((message) =>
                   message.id === row.id
-                    ? mapMessage(row, user.id, chat.otherReadAt)
+                    ? mapMessage(row, user.id, readContextOf(chat))
                     : message
                 ),
               }
@@ -369,13 +416,29 @@ export function useChats(user, activeId) {
           setChats((prev) =>
             prev.map((chat) => {
               if (chat.id !== row.conversation_id) return chat
+              const readMap = { ...(chat.readMap || {}), [row.user_id]: row.last_read_at }
+              const otherReadAt = Object.entries(readMap)
+                .filter(([id]) => id !== user.id)
+                .reduce(
+                  (max, [, value]) => (!max || value > max ? value : max),
+                  null
+                )
               return {
                 ...chat,
-                otherReadAt: row.last_read_at,
+                readMap,
+                otherReadAt,
                 messages: chat.messages.map((message) =>
-                  message.from === 'me' &&
-                  new Date(row.last_read_at) >= new Date(message.createdAt)
-                    ? { ...message, status: 'read' }
+                  message.from === 'me'
+                    ? {
+                        ...message,
+                        status: statusFor(
+                          message.createdAt,
+                          user.id,
+                          chat.memberIds || [],
+                          chat.isGroup,
+                          readMap
+                        ),
+                      }
                     : message
                 ),
               }
@@ -409,26 +472,44 @@ export function useChats(user, activeId) {
             )
           )
           setChats((prev) =>
-            prev.map((chat) =>
-              !chat.isGroup && chat.memberIds.includes(row.id)
-                ? {
-                    ...chat,
-                    name: row.name,
-                    avatarColor: row.avatar_color || chat.avatarColor,
-                    avatarUrl: row.avatar_url || null,
-                    bio: row.bio || '',
-                    lastSeen: row.last_seen,
-                  }
-                : chat
-            )
+            prev.map((chat) => {
+              if (!chat.memberIds.includes(row.id)) return chat
+              if (chat.isGroup) {
+                return {
+                  ...chat,
+                  members: (chat.members || []).map((member) =>
+                    member.id === row.id
+                      ? {
+                          ...member,
+                          name: row.name,
+                          avatarColor: row.avatar_color || member.avatarColor,
+                          avatarUrl: row.avatar_url || null,
+                          bio: row.bio || '',
+                        }
+                      : member
+                  ),
+                }
+              }
+              return {
+                ...chat,
+                name: row.name,
+                avatarColor: row.avatar_color || chat.avatarColor,
+                avatarUrl: row.avatar_url || null,
+                bio: row.bio || '',
+                lastSeen: row.last_seen,
+              }
+            })
           )
         }
       )
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'conversation_members' },
+        { event: '*', schema: 'public', table: 'conversation_members' },
         (payload) => {
-          if (payload.new?.user_id === user.id) load()
+          const conversationId = payload.new?.conversation_id || payload.old?.conversation_id
+          if (!conversationId) return
+          if (!chatsRef.current.some((chat) => chat.id === conversationId)) return
+          load()
         }
       )
       .subscribe()
@@ -504,7 +585,7 @@ export function useChats(user, activeId) {
             return {
               ...chat,
               lastTime: timeOf(data.created_at),
-              messages: [...chat.messages, mapMessage(data, user.id, chat.otherReadAt)],
+              messages: [...chat.messages, mapMessage(data, user.id, readContextOf(chat))],
             }
           })
         )
@@ -680,6 +761,68 @@ export function useChats(user, activeId) {
     [load, user]
   )
 
+  const startGroupChat = useCallback(
+    async (name, memberIds = []) => {
+      if (!user) return null
+      const title = String(name || '').trim()
+      const ids = [...new Set(memberIds.filter((id) => id && id !== user.id))]
+      if (!title || !ids.length) return null
+
+      const { data: conversation, error: conversationError } = await supabase
+        .from('conversations')
+        .insert({ is_group: true, title, created_by: user.id })
+        .select('id')
+        .single()
+      if (conversationError || !conversation?.id) return null
+
+      const rows = [
+        { conversation_id: conversation.id, user_id: user.id },
+        ...ids.map((id) => ({ conversation_id: conversation.id, user_id: id })),
+      ]
+      const { error: memberError } = await supabase.from('conversation_members').insert(rows)
+      if (memberError) {
+        await supabase
+          .from('conversations')
+          .delete()
+          .eq('id', conversation.id)
+          .eq('created_by', user.id)
+        return null
+      }
+
+      await load()
+      return conversation.id
+    },
+    [load, user]
+  )
+
+  const addGroupMember = useCallback(
+    async (conversationId, memberId) => {
+      if (!user || !conversationId || !memberId || memberId === user.id) return false
+      const { error } = await supabase
+        .from('conversation_members')
+        .insert({ conversation_id: conversationId, user_id: memberId })
+      if (error) return false
+      await load()
+      return true
+    },
+    [load, user]
+  )
+
+  const removeGroupMember = useCallback(
+    async (conversationId, memberId) => {
+      if (!user || !conversationId || !memberId) return false
+      const { error } = await supabase
+        .from('conversation_members')
+        .delete()
+        .eq('conversation_id', conversationId)
+        .eq('user_id', memberId)
+      if (error) return false
+      await load()
+      return true
+    },
+    [load, user]
+  )
+
   return {
     chats,
     contacts,
@@ -687,6 +830,9 @@ export function useChats(user, activeId) {
     loading,
     sendMessage,
     startChat,
+    startGroupChat,
+    addGroupMember,
+    removeGroupMember,
     markRead,
     reactToMessage,
     editMessage,

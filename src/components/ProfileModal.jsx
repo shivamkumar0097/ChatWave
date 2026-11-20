@@ -96,6 +96,7 @@ export default function ProfileModal({
   onToggleSound,
   onClose,
   onSaved,
+  onNotice,
   onError,
   onSignOut,
 }) {
@@ -160,6 +161,7 @@ export default function ProfileModal({
     }
 
     onClose?.()
+    onNotice?.('Profile updated successfully')
 
     if (handle && supabase) {
       const { data: taken } = await supabase

@@ -462,11 +462,6 @@ function ChatApp() {
     return ok
   }
 
-  const handleProfileSaved = async () => {
-    await reload()
-    showSuccess('Profile updated successfully')
-  }
-
   return (
     <div className="flex h-full overflow-hidden bg-wa-bg">
       <Sidebar
@@ -569,7 +564,8 @@ function ChatApp() {
           soundOn={soundOn}
           onToggleSound={toggleSound}
           onClose={() => setProfileOpen(false)}
-          onSaved={handleProfileSaved}
+          onSaved={reload}
+          onNotice={showSuccess}
           onError={showToast}
           onSignOut={signOut}
         />

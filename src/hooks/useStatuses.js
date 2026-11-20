@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
-const COLUMNS =
-  'id, user_id, kind, text_content, image_url, background, created_at, expires_at, profiles(id, name, avatar_color, avatar_url)'
+const COLUMNS = 'id, user_id, kind, text_content, image_url, background, created_at, expires_at'
+const PROFILE_COLUMNS = 'id, name, avatar_color, avatar_url'
 
 export function useStatuses(user) {
   const [groups, setGroups] = useState([])
@@ -23,6 +23,13 @@ export function useStatuses(user) {
     const rows = (data || []).filter(
       (row) => !row.expires_at || new Date(row.expires_at).getTime() > now
     )
+    const ids = [...new Set(rows.map((row) => row.user_id))]
+    const { data: profiles } = ids.length
+      ? await supabase.from('profiles').select(PROFILE_COLUMNS).in('id', ids)
+      : { data: [] }
+    const profileMap = {}
+    for (const profile of profiles || []) profileMap[profile.id] = profile
+
     const { data: views } = await supabase.from('status_views').select('status_id, viewer_id')
     const viewed = {}
     for (const view of views || []) {
@@ -31,7 +38,7 @@ export function useStatuses(user) {
     }
     const byUser = new Map()
     for (const row of rows) {
-      const profile = row.profiles || {}
+      const profile = profileMap[row.user_id] || {}
       if (!byUser.has(row.user_id)) {
         byUser.set(row.user_id, {
           userId: row.user_id,

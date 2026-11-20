@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ImagePlus, Plus, Trash2, X } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 
@@ -75,6 +75,28 @@ export default function StatusPanel({ groups, myUserId, loading, onAddText, onAd
     setOpened({ ...opened, index: next })
     if (opened.group.userId !== myUserId) await onViewed(opened.group.items[next].id)
   }
+
+  const openedRef = useRef(opened)
+  useEffect(() => {
+    openedRef.current = opened
+  }, [opened])
+
+  useEffect(() => {
+    if (!opened) return undefined
+    const delay = current?.kind === 'image' ? 5000 : 4000
+    const timer = window.setTimeout(() => {
+      const active = openedRef.current
+      if (!active) return
+      const next = active.index + 1
+      if (next >= active.group.items.length) {
+        setOpened(null)
+        return
+      }
+      setOpened({ ...active, index: next })
+      if (active.group.userId !== myUserId) onViewed(active.group.items[next].id)
+    }, delay)
+    return () => window.clearTimeout(timer)
+  }, [opened, current?.kind, myUserId, onViewed])
 
   return (
     <section className="tab-fade flex min-w-0 flex-1 flex-col bg-wa-bg">
@@ -254,6 +276,24 @@ export default function StatusPanel({ groups, myUserId, loading, onAddText, onAd
             {current.kind === 'image' && (
               <img src={current.imageUrl} alt="Status" className="absolute inset-0 h-full w-full object-cover" />
             )}
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                move(-1)
+              }}
+              className="absolute inset-y-0 left-0 z-10 w-1/2 bg-transparent"
+              aria-label="Previous status"
+            />
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                move(1)
+              }}
+              className="absolute inset-y-0 right-0 z-10 w-1/2 bg-transparent"
+              aria-label="Next status"
+            />
             <div className="absolute inset-x-0 top-0 flex gap-1 p-3">
               {opened.group.items.map((item, i) => (
                 <span
@@ -283,7 +323,7 @@ export default function StatusPanel({ groups, myUserId, loading, onAddText, onAd
                     await onRemove(current.id)
                     setOpened(null)
                   }}
-                  className="icon-btn text-white"
+                  className="icon-btn relative z-20 text-white"
                   aria-label="Delete status"
                 >
                   <Trash2 size={17} />

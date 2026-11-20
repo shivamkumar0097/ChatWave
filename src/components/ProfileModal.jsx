@@ -11,6 +11,8 @@ import {
   LogOut,
   Mail,
   Monitor,
+  Moon,
+  Sun,
   Palette,
   Settings,
   Sparkles,
@@ -94,6 +96,8 @@ export default function ProfileModal({
   initialTab = 'profile',
   soundOn = true,
   onToggleSound,
+  theme = 'dark',
+  onToggleTheme,
   onClose,
   onSaved,
   onNotice,
@@ -517,6 +521,13 @@ export default function ProfileModal({
               </p>
 
               <div className="divide-y divide-white/[0.06] overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02]">
+                <SettingRow
+                  icon={theme === 'dark' ? Sun : Moon}
+                  title="Light theme"
+                  description="Switch between dark and light appearance"
+                  value={theme === 'light'}
+                  onToggle={onToggleTheme}
+                />
                 <SettingRow
                   icon={soundOn ? Bell : BellOff}
                   title="Notification sounds"

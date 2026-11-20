@@ -4,6 +4,10 @@ import './index.css'
 import './app.css'
 import App from './App.jsx'
 
+if (window.localStorage.getItem('cw-theme') === 'light') {
+  document.documentElement.classList.add('light')
+}
+
 const coarsePointer = () => window.matchMedia?.('(pointer: coarse)').matches
 
 const blockPinch = (event) => {

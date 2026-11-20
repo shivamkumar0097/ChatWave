@@ -10,6 +10,7 @@ import {
   Forward,
   Info,
   Pencil,
+  Smile,
   Star,
   Trash2,
   X,
@@ -388,7 +389,7 @@ export default function MessageBubble({
               aria-label="React"
               title="React"
             >
-              😊
+              <Smile size={14} className="text-wa-muted" />
             </button>
             {!message.deleted && (
               <button

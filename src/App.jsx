@@ -118,6 +118,12 @@ function ChatApp() {
   const [uploading, setUploading] = useState(false)
   const [toast, setToast] = useState('')
   const [successNotice, setSuccessNotice] = useState('')
+  const [theme, setTheme] = useState(() => window.localStorage.getItem('cw-theme') || 'dark')
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('light', theme === 'light')
+    window.localStorage.setItem('cw-theme', theme)
+  }, [theme])
   const [forwarding, setForwarding] = useState(null)
   const [soundOn, setSoundOn] = useState(
     () => typeof window === 'undefined' || window.localStorage.getItem('cw-sound') !== 'off'
@@ -567,6 +573,8 @@ function ChatApp() {
           initialTab={profileTab}
           soundOn={soundOn}
           onToggleSound={toggleSound}
+          theme={theme}
+          onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
           onClose={() => setProfileOpen(false)}
           onSaved={reload}
           onNotice={showSuccess}

@@ -1,3 +1,47 @@
 :root {
   color-scheme: dark;
 }
+
+:root.light {
+  color-scheme: light;
+  --color-wa-bg: #eef1f6;
+  --color-wa-panel: #ffffff;
+  --color-wa-panel-2: #f4f6fa;
+  --color-wa-border: #d8dde6;
+  --color-wa-text: #1b2230;
+  --color-wa-muted: #626b7d;
+}
+
+.light [class*="bg-[#0f1220]"],
+.light [class*="bg-[#11141f]"],
+.light [class*="bg-[#151827]"],
+.light [class*="bg-[#161a28]"],
+.light [class*="bg-[#101322]"],
+.light [class*="bg-[#12151f]"],
+.light [class*="bg-[#141726]"],
+.light [class*="bg-[#0b0d18]"],
+.light [class*="bg-[#080911]"],
+.light [class*="bg-[#0d0f19]"] {
+  background-color: #ffffff !important;
+}
+
+.light [class*="bg-[#0a0c14]"] {
+  background-color: rgba(255, 255, 255, 0.94) !important;
+}
+
+.light [class*="border-white/"] {
+  border-color: rgba(24, 34, 56, 0.1) !important;
+}
+
+.light .text-white {
+  color: #1b2230 !important;
+}
+
+.light .btn-accent,
+.light .btn-accent * {
+  color: #ffffff !important;
+}
+
+.light .glass-strong {
+  background-color: rgba(255, 255, 255, 0.96) !important;
+}

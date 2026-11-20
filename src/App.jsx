@@ -1,0 +1,447 @@
+﻿import { useEffect, useState } from 'react'
+import { Forward as ForwardIcon, ImagePlus, Loader2, Send, X } from 'lucide-react'
+import { AuthProvider, useAuth } from '@/context/AuthContext'
+import { useChats } from '@/hooks/useChats'
+import { useDesktopNotifications } from '@/hooks/useDesktopNotifications'
+import { useNotificationSound } from '@/hooks/useNotificationSound'
+import { usePresence } from '@/hooks/usePresence'
+import { supabase } from '@/lib/supabase'
+import { playSendSound } from '@/lib/sound'
+import AuthScreen from '@/pages/AuthScreen'
+import ChatWindow from '@/components/ChatWindow'
+import NewChatModal from '@/components/NewChatModal'
+import ProfileModal from '@/components/ProfileModal'
+import Avatar from '@/components/Avatar'
+
+function ForwardModal({ contacts, preview, onClose, onPick }) {
+  const [busyId, setBusyId] = useState(null)
+
+  return (
+    <div
+      className="animate-fade-in fixed inset-0 z-[85] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Forward message"
+    >
+      <div
+        className="glass-strong animate-pop-in w-full max-w-sm overflow-hidden rounded-3xl shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-white/[0.07] px-5 py-4">
+          <div className="min-w-0">
+            <h3 className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
+              <ForwardIcon size={16} className="text-wa-green" />
+              Forward message
+            </h3>
+            {preview && <p className="mt-0.5 truncate text-[11.5px] text-wa-muted">{preview}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="icon-btn"
+            aria-label="Close"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="max-h-72 overflow-y-auto p-2">
+          {contacts.length === 0 ? (
+            <p className="px-3 py-6 text-center text-[12.5px] text-wa-muted">
+              No contacts available to forward to.
+            </p>
+          ) : (
+            contacts.map((contact) => (
+              <button
+                key={contact.id}
+                type="button"
+                disabled={busyId !== null}
+                onClick={() => {
+                  setBusyId(contact.id)
+                  onPick(contact.id)
+                }}
+                className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-white/[0.05] disabled:opacity-50"
+              >
+                <Avatar name={contact.name} src={contact.avatarUrl} color={contact.avatarColor} size="sm" />
+                <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-wa-text">
+                  {contact.name}
+                </span>
+                {busyId === contact.id ? (
+                  <Loader2 size={16} className="animate-spin text-wa-green" />
+                ) : (
+                  <Send size={15} className="text-wa-muted" />
+                )}
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+import Sidebar from '@/components/Sidebar'
+
+function readIdSet(key) {
+  if (typeof window === 'undefined' || !key) return new Set()
+  try {
+    const value = JSON.parse(window.localStorage.getItem(key) || '[]')
+    return new Set(Array.isArray(value) ? value : [])
+  } catch {
+    return new Set()
+  }
+}
+
+function ChatApp() {
+  const { user, loading, signOut } = useAuth()
+  const [activeId, setActiveId] = useState(null)
+  const [mobileChatOpen, setMobileChatOpen] = useState(false)
+  const [newChatOpen, setNewChatOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [profileTab, setProfileTab] = useState('profile')
+  const [uploading, setUploading] = useState(false)
+  const [toast, setToast] = useState('')
+  const [forwarding, setForwarding] = useState(null)
+  const [soundOn, setSoundOn] = useState(
+    () => typeof window === 'undefined' || window.localStorage.getItem('cw-sound') !== 'off'
+  )
+  const [starredIds, setStarredIds] = useState(() =>
+    readIdSet(user?.id ? `cw-starred:${user.id}` : '')
+  )
+  const [pinnedIds, setPinnedIds] = useState(() =>
+    readIdSet(user?.id ? `cw-pinned:${user.id}` : '')
+  )
+  const [archivedIds, setArchivedIds] = useState(() =>
+    readIdSet(user?.id ? `cw-archived:${user.id}` : '')
+  )
+  const [unreadAnchor, setUnreadAnchor] = useState(null)
+
+  const {
+    chats,
+    contacts,
+    me: myProfile,
+    loading: chatsLoading,
+    sendMessage,
+    startChat,
+    markRead,
+    reactToMessage,
+    editMessage,
+    deleteMessage,
+    reload,
+  } = useChats(user, activeId)
+  const onlineIds = usePresence(user)
+  useNotificationSound(soundOn)
+  useDesktopNotifications()
+
+  const toggleSound = () => {
+    setSoundOn((current) => {
+      window.localStorage.setItem('cw-sound', current ? 'off' : 'on')
+      return !current
+    })
+  }
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    document.documentElement.classList.toggle(
+      'reduce-motion',
+      window.localStorage.getItem('cw-reduce-motion') === '1'
+    )
+  }, [])
+
+  useEffect(() => {
+    if (!user?.id || typeof window === 'undefined') return
+    window.localStorage.setItem(`cw-starred:${user.id}`, JSON.stringify([...starredIds]))
+    window.localStorage.setItem(`cw-pinned:${user.id}`, JSON.stringify([...pinnedIds]))
+    window.localStorage.setItem(`cw-archived:${user.id}`, JSON.stringify([...archivedIds]))
+  }, [starredIds, pinnedIds, archivedIds, user?.id])
+
+  const totalUnread = chats.reduce((sum, chat) => sum + (chat.unread || 0), 0)
+  useEffect(() => {
+    document.title = totalUnread ? `(${totalUnread}) ChatWave` : 'ChatWave'
+  }, [totalUnread])
+
+  const openProfile = (tab = 'profile') => {
+    setProfileTab(tab)
+    setProfileOpen(true)
+  }
+
+  if (loading) {
+    return (
+      <div className="grid h-full place-items-center bg-wa-bg">
+        <div className="relative grid place-items-center">
+          <span className="absolute h-24 w-24 animate-ping rounded-full bg-wa-green/10" />
+          <div className="ring-gradient grid h-14 w-14 place-items-center rounded-2xl shadow-[0_20px_50px_-18px_rgba(124,92,255,0.9)]"><img src="/logo.jpg" alt="ChatWave" className="h-8 w-8 animate-pulse" /></div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) return <AuthScreen />
+
+  const me = {
+    name: myProfile?.name || user.user_metadata?.full_name || user.email.split('@')[0],
+    avatarUrl: myProfile?.avatar_url || null,
+    color: myProfile?.avatar_color || '#7c5cff',
+    bio: myProfile?.bio || '',
+  }
+  const chatsWithPresence = chats.map((chat) => {
+    const otherId = chat.memberIds.find((id) => id !== user.id)
+    return { ...chat, online: otherId ? onlineIds.has(otherId) : false }
+  })
+  const activeChat = chatsWithPresence.find((chat) => chat.id === activeId)
+
+  const handleSelect = (id) => {
+    const target = chatsWithPresence.find((chat) => chat.id === id)
+    const readAt = target?.myReadAt
+    const firstUnread = target?.messages.find(
+      (message) =>
+        message.from === 'them' && (!readAt || new Date(message.createdAt) > new Date(readAt))
+    )
+    setUnreadAnchor(firstUnread ? { chatId: id, messageId: firstUnread.id } : null)
+    setActiveId(id)
+    markRead(id)
+    setMobileChatOpen(true)
+  }
+
+  const handleSend = async (text, options) => {
+    if (!activeId) return
+    if (soundOn) playSendSound()
+    const { error } = await sendMessage(activeId, text, null, options)
+    if (error) showToast('Message could not be sent.')
+  }
+
+  const showToast = (message) => {
+    setToast(message)
+    window.setTimeout(() => setToast(''), 3500)
+  }
+
+  const handleSendAttachment = async (file, options = {}) => {
+    if (!activeId || !user) return
+
+    const kind = options.kind || (file.type.startsWith('image/') ? 'image' : 'document')
+    const isImage = kind === 'image'
+    const limit = isImage ? 5 * 1024 * 1024 : 25 * 1024 * 1024
+
+    if (file.size > limit) {
+      showToast(isImage ? 'Image must be under 5 MB.' : 'File must be under 25 MB.')
+      return
+    }
+
+    const bucket = isImage ? 'chat-images' : 'chat-files'
+    const safeName = file.name.replace(/[^\w.-]+/g, '_') || 'attachment'
+    const path = `${user.id}/${activeId}/${Date.now()}-${safeName}`
+
+    setUploading(true)
+    const { error } = await supabase.storage.from(bucket).upload(path, file, {
+      contentType: (file.type || 'application/octet-stream').split(';')[0],
+      cacheControl: '3600',
+    })
+
+    if (error) {
+      setUploading(false)
+      showToast(
+        isImage
+          ? error.message
+          : 'File upload failed. Run supabase/schema8.sql to enable attachments.'
+      )
+      return
+    }
+
+    const url = supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl
+    if (soundOn) playSendSound()
+
+    const contentType = (file.type || 'application/octet-stream').split(';')[0]
+    const { error: sendError } = await sendMessage(activeId, options.caption || '', isImage ? url : null, {
+      replyTo: options.replyTo,
+      fileUrl: isImage ? undefined : url,
+      fileName: file.name,
+      fileType: contentType,
+      fileSize: file.size,
+    })
+
+    setUploading(false)
+    if (sendError) showToast('Could not send the attachment.')
+  }
+
+  const handleReact = (message, emoji) => {
+    if (!activeId) return
+    reactToMessage(activeId, message.id, emoji)
+  }
+
+  const handleEditMessage = async (message, text) => {
+    if (!activeId) return
+    const ok = await editMessage(activeId, message.id, text)
+    if (!ok) showToast('Could not edit the message.')
+  }
+
+  const handleDeleteMessage = async (message, forEveryone) => {
+    if (!activeId) return
+    const ok = await deleteMessage(activeId, message.id, forEveryone)
+    if (!ok) showToast('Could not delete the message.')
+  }
+
+  const handleStarMessage = (message) => {
+    setStarredIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(message.id)) next.delete(message.id)
+      else next.add(message.id)
+      return next
+    })
+  }
+
+  const toggleId = (setter, id) => {
+    setter((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleForwardPick = async (contactId) => {
+    const message = forwarding
+    setForwarding(null)
+    if (!message) return
+
+    const id = await startChat(contactId)
+    if (!id) {
+      showToast('Could not forward the message.')
+      return
+    }
+    const { error } = await sendMessage(id, message.text || '', message.imageUrl || null, {
+      forwarded: true,
+      fileUrl: message.fileUrl,
+      fileName: message.fileName,
+      fileType: message.fileType,
+      fileSize: message.fileSize,
+    })
+    if (error) {
+      showToast('Could not forward the message.')
+      return
+    }
+    showToast('Message forwarded ✓')
+  }
+
+  const handlePick = async (contactId) => {
+    const id = await startChat(contactId)
+    setNewChatOpen(false)
+    if (id) {
+      setUnreadAnchor(null)
+      setActiveId(id)
+      markRead(id)
+      setMobileChatOpen(true)
+    }
+  }
+
+  return (
+    <div className="flex h-full overflow-hidden bg-wa-bg">
+      <Sidebar
+        chats={chatsWithPresence}
+        activeId={activeId}
+        onSelect={handleSelect}
+        onNewChat={() => setNewChatOpen(true)}
+        onSignOut={signOut}
+        onProfile={() => openProfile('profile')}
+        onSettings={() => openProfile('settings')}
+        soundOn={soundOn}
+        onToggleSound={toggleSound}
+        me={me}
+        loading={chatsLoading}
+        pinnedIds={pinnedIds}
+        archivedIds={archivedIds}
+        className={mobileChatOpen ? 'hidden md:flex' : 'flex'}
+      />
+      <ChatWindow
+        chat={activeChat}
+        user={user}
+        onSend={handleSend}
+        onSendAttachment={handleSendAttachment}
+        uploading={uploading}
+        onBack={() => setMobileChatOpen(false)}
+        onReact={handleReact}
+        onForward={setForwarding}
+        onEditMessage={handleEditMessage}
+        onDeleteMessage={handleDeleteMessage}
+        onStarMessage={handleStarMessage}
+        starredIds={starredIds}
+        pinned={activeChat ? pinnedIds.has(activeChat.id) : false}
+        archived={activeChat ? archivedIds.has(activeChat.id) : false}
+        onTogglePin={() => activeId && toggleId(setPinnedIds, activeId)}
+        onToggleArchive={() => activeId && toggleId(setArchivedIds, activeId)}
+        unreadAnchorId={
+          unreadAnchor && activeChat && unreadAnchor.chatId === activeChat.id
+            ? unreadAnchor.messageId
+            : null
+        }
+        className={mobileChatOpen ? 'flex' : 'hidden md:flex'}
+      />
+      {forwarding && (
+        <ForwardModal
+          contacts={contacts}
+          preview={
+            forwarding.imageUrl && !forwarding.text
+              ? '📷 Photo'
+              : forwarding.fileUrl && !forwarding.text
+                ? forwarding.fileName || 'Attachment'
+                : forwarding.text
+          }
+          onClose={() => setForwarding(null)}
+          onPick={handleForwardPick}
+        />
+      )}
+      {newChatOpen && (
+        <NewChatModal
+          contacts={contacts}
+          onClose={() => setNewChatOpen(false)}
+          onPick={handlePick}
+        />
+      )}
+      {profileOpen && (
+        <ProfileModal
+          user={user}
+          currentName={me.name}
+          currentAvatarUrl={me.avatarUrl}
+          currentBio={me.bio}
+          currentColor={me.color}
+          initialTab={profileTab}
+          soundOn={soundOn}
+          onToggleSound={toggleSound}
+          onClose={() => setProfileOpen(false)}
+          onSaved={reload}
+          onSignOut={signOut}
+        />
+      )}
+      {toast && (
+        <div className="animate-pop-in fixed bottom-6 left-1/2 z-[80] flex -translate-x-1/2 items-center gap-2.5 rounded-2xl border border-red-400/25 bg-[#1a1020]/95 px-4 py-2.5 text-[12px] text-red-200 shadow-2xl backdrop-blur">
+          <ImagePlus size={15} className="shrink-0 text-red-300" />
+          {toast}
+          <button
+            type="button"
+            onClick={() => setToast('')}
+            className="ml-1 text-red-300/70 transition-colors hover:text-white"
+            aria-label="Dismiss"
+          >
+            <X size={13} />
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AuthGate() {
+  const { user } = useAuth()
+  return <ChatApp key={user?.id ?? 'guest'} />
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AuthGate />
+    </AuthProvider>
+  )
+}
+
+
+
+

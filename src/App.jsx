@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { Check, Forward as ForwardIcon, ImagePlus, Loader2, Send, X } from 'lucide-react'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { useChats } from '@/hooks/useChats'
@@ -128,12 +128,47 @@ function ChatApp() {
   const [toast, setToast] = useState('')
   const [successNotice, setSuccessNotice] = useState('')
   const [theme, setTheme] = useState(() => window.localStorage.getItem('cw-theme') || 'dark')
+  const awayFromHomeRef = useRef(false)
 
   useEffect(() => {
     document.documentElement.classList.toggle('light', theme === 'light')
     window.localStorage.setItem('cw-theme', theme)
   }, [theme])
+
   const [forwarding, setForwarding] = useState(null)
+
+  useEffect(() => {
+    const away =
+      activeTab !== 'chats' ||
+      mobileChatOpen ||
+      profileOpen ||
+      newChatOpen ||
+      newGroupOpen ||
+      Boolean(forwarding) ||
+      Boolean(contactCard)
+    if (away && !awayFromHomeRef.current) {
+      window.history.pushState({ chatwave: 'away' }, '')
+      awayFromHomeRef.current = true
+    } else if (!away) {
+      awayFromHomeRef.current = false
+    }
+  }, [activeTab, mobileChatOpen, profileOpen, newChatOpen, newGroupOpen, forwarding, contactCard])
+
+  useEffect(() => {
+    const goHome = () => {
+      setActiveTab('chats')
+      setMobileChatOpen(false)
+      setActiveId(null)
+      setProfileOpen(false)
+      setNewChatOpen(false)
+      setNewGroupOpen(false)
+      setForwarding(null)
+      setContactCard(null)
+      awayFromHomeRef.current = false
+    }
+    window.addEventListener('popstate', goHome)
+    return () => window.removeEventListener('popstate', goHome)
+  }, [])
   const [soundOn, setSoundOn] = useState(
     () => typeof window === 'undefined' || window.localStorage.getItem('cw-sound') !== 'off'
   )

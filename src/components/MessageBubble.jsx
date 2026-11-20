@@ -155,7 +155,7 @@ export default function MessageBubble({
 
   const meta = (
     <span
-      className={`flex items-center gap-1 text-[10px] ${
+      className={`flex items-center gap-1 whitespace-nowrap text-[10px] ${
         mine ? 'text-white/70' : 'text-wa-muted'
       }`}
     >
@@ -302,9 +302,12 @@ export default function MessageBubble({
             )}
 
           {message.text && (
-            <p className="whitespace-pre-wrap break-words pr-12">
-              <EmojiText text={message.text} />
-            </p>
+            <div className="flex items-end justify-between gap-2">
+              <p className="min-w-0 whitespace-pre-wrap break-words">
+                <EmojiText text={message.text} />
+              </p>
+              <span className="shrink-0 translate-y-[1px] opacity-80">{meta}</span>
+            </div>
           )}
         </>
       )}
@@ -313,11 +316,7 @@ export default function MessageBubble({
         <span className={`mt-1 flex justify-end ${mine ? 'text-white/60' : 'text-wa-muted'}`}>
           {meta}
         </span>
-      ) : message.text ? (
-        <span className="-mt-2.5 flex items-center justify-end gap-1 text-inherit opacity-80">
-          {meta}
-        </span>
-      ) : (
+      ) : message.text ? null : (
         <span className={`mt-0.5 flex justify-end ${mine ? 'text-white/70' : 'text-wa-muted'}`}>
           {meta}
         </span>

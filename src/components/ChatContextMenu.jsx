@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   Archive,
@@ -34,6 +35,8 @@ export default function ChatContextMenu({
   onCopyUsername,
   onClearChat,
 }) {
+  const [confirmClear, setConfirmClear] = useState(false)
+
   const options = [
     {
       key: 'read',
@@ -82,11 +85,42 @@ export default function ChatContextMenu({
         onClick={(event) => event.stopPropagation()}
         role="menu"
       >
-        {options.map((option) => (
+        {confirmClear ? (
+          <div className="p-2 text-center">
+            <p className="text-[13px] font-semibold text-wa-text">Clear this chat?</p>
+            <p className="mt-1 text-[10.5px] text-wa-muted">
+              Messages will be hidden only on this device.
+            </p>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmClear(false)}
+                className="flex-1 rounded-xl border border-white/10 py-2 text-[11.5px] text-wa-muted"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onClearChat()
+                  onClose()
+                }}
+                className="flex-1 rounded-xl bg-red-500/20 py-2 text-[11.5px] font-semibold text-red-200"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        ) : (
+          options.map((option) => (
           <button
             key={option.key}
             type="button"
             onClick={() => {
+              if (option.key === 'clear' && !confirmClear) {
+                setConfirmClear(true)
+                return
+              }
               option.action()
               onClose()
             }}
@@ -97,7 +131,8 @@ export default function ChatContextMenu({
             <option.icon size={16} className={option.danger ? 'text-red-300' : 'text-wa-muted'} />
             {option.label}
           </button>
-        ))}
+          ))
+        )}
       </div>
     </div>,
     document.body

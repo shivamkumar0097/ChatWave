@@ -1,4 +1,8 @@
 let context = null
+let ringTimer = null
+
+const soundEnabled = () =>
+  typeof window === 'undefined' || window.localStorage.getItem('cw-sound') !== 'off'
 
 const getContext = () => {
   if (typeof window === 'undefined') return null
@@ -76,4 +80,29 @@ export const playSendSound = () => {
     soft.start(now)
     soft.stop(now + 0.06)
   })
+}
+
+export const startRingtone = () => {
+  if (!soundEnabled() || ringTimer) return
+  const ctx = getContext()
+  if (!ctx) return
+
+  const playOnce = () =>
+    run(ctx, (audio) => {
+      const start = audio.currentTime + 0.02
+      note(audio, 587.33, start, 0.17, 0.05)
+      note(audio, 783.99, start + 0.19, 0.17, 0.05)
+      note(audio, 659.25, start + 0.43, 0.17, 0.05)
+      note(audio, 880, start + 0.62, 0.3, 0.045)
+    })
+
+  playOnce()
+  ringTimer = window.setInterval(playOnce, 2200)
+}
+
+export const stopRingtone = () => {
+  if (ringTimer) {
+    window.clearInterval(ringTimer)
+    ringTimer = null
+  }
 }

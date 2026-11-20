@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { startRingtone, stopRingtone } from '@/lib/sound'
 
 const ICE_SERVERS = [
   {
@@ -81,6 +82,7 @@ export function useCall(user) {
 
   const cleanup = useCallback(
     (notifyPeer = false) => {
+      stopRingtone()
       const current = callRef.current
       if (notifyPeer && current) {
         sendSignal(current.peerId, { type: 'end', callId: current.callId })
@@ -123,6 +125,7 @@ export function useCall(user) {
 
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === 'connected') {
+        stopRingtone()
         setCall((prev) =>
           prev && prev.phase !== 'connected'
             ? { ...prev, phase: 'connected', startedAt: prev.startedAt || Date.now() }
@@ -166,6 +169,7 @@ export function useCall(user) {
           sdp: payload.sdp,
         }
         incomingRef.current = offer
+        startRingtone()
         setIncoming({
           callId: offer.callId,
           conversationId: offer.conversationId,
@@ -187,6 +191,7 @@ export function useCall(user) {
           cleanup(false)
           return
         }
+        stopRingtone()
         await applyPendingIce(pc)
         setCall((prev) => (prev ? { ...prev, phase: 'connecting' } : prev))
         return
@@ -285,6 +290,7 @@ export function useCall(user) {
       setLocalStream(stream)
       callRef.current = info
       setCall(info)
+      startRingtone()
 
       const pc = await preparePeer()
       const offer = await pc.createOffer()
@@ -316,6 +322,7 @@ export function useCall(user) {
   const acceptCall = useCallback(async () => {
     const offer = incomingRef.current
     if (!offer) return
+    stopRingtone()
     const stream = await getStream(offer.withVideo)
     if (!stream) {
       showNotice('Microphone or camera access denied')
@@ -361,6 +368,7 @@ export function useCall(user) {
   const declineCall = useCallback(async () => {
     const offer = incomingRef.current
     if (!offer) return
+    stopRingtone()
     await sendSignal(offer.peerId, { type: 'decline', callId: offer.callId })
     incomingRef.current = null
     setIncoming(null)

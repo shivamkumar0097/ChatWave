@@ -384,8 +384,15 @@ export function useChats(user, activeId) {
             prev.map((chat) => {
               if (chat.id !== row.conversation_id) return chat
               known = true
-              if (chat.messages.some((message) => message.id === row.id)) return chat
-              if (row.view_once && isActive && row.sender_id !== user.id) return chat
+              const base = chat.messages.some(
+                (message) => message.pending && message.senderId === user.id
+              )
+                ? chat.messages.filter((message) => !(message.pending && message.senderId === user.id))
+                : chat.messages
+              if (base.some((message) => message.id === row.id)) return { ...chat, messages: base }
+              if (row.view_once && isActive && row.sender_id !== user.id) {
+                return { ...chat, messages: base }
+              }
               const next = mapMessage(row, user.id, readContextOf(chat))
               return {
                 ...chat,
@@ -395,7 +402,7 @@ export function useChats(user, activeId) {
                   row.sender_id !== user.id && !isActive && !isMessageExpired(next)
                     ? chat.unread + 1
                     : chat.unread,
-                messages: isMessageExpired(next) ? chat.messages : [...chat.messages, next],
+                messages: isMessageExpired(next) ? base : [...base, next],
               }
             })
           )
@@ -611,6 +618,34 @@ export function useChats(user, activeId) {
       }
       if (options.timer === 'view_once') row.view_once = true
 
+      const unique = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2)
+      const tempId = `temp-${unique}`
+      const optimisticRow = {
+        ...row,
+        id: tempId,
+        created_at: new Date().toISOString(),
+        reactions: {},
+        viewed_by: {},
+      }
+      const optimisticChat = chatsRef.current.find((chat) => chat.id === conversationId) || {}
+      const optimistic = {
+        ...mapMessage(optimisticRow, user.id, readContextOf(optimisticChat)),
+        pending: true,
+      }
+      setChats((prev) =>
+        prev.map((chat) =>
+          chat.id === conversationId
+            ? {
+                ...chat,
+                lastTime: timeOf(optimisticRow.created_at),
+                messages: [...chat.messages, optimistic],
+              }
+            : chat
+        )
+      )
+
       const withoutTimerColumns = (source) => {
         const next = { ...source }
         delete next.expires_at
@@ -656,18 +691,30 @@ export function useChats(user, activeId) {
         error = retry.error
       }
 
-      if (error) return { error }
+      if (error) {
+        setChats((prev) =>
+          prev.map((chat) =>
+            chat.id === conversationId
+              ? { ...chat, messages: chat.messages.filter((message) => message.id !== tempId) }
+              : chat
+          )
+        )
+        return { error }
+      }
 
       if (data) {
         setChats((prev) =>
           prev.map((chat) => {
             if (chat.id !== conversationId) return chat
-            if (chat.messages.some((message) => message.id === data.id)) return chat
+            const messages = chat.messages.filter((message) => message.id !== tempId)
             const next = mapMessage(data, user.id, readContextOf(chat))
+            if (isMessageExpired(next) || messages.some((message) => message.id === data.id)) {
+              return { ...chat, messages }
+            }
             return {
               ...chat,
               lastTime: timeOf(data.created_at),
-              messages: isMessageExpired(next) ? chat.messages : [...chat.messages, next],
+              messages: [...messages, next],
             }
           })
         )

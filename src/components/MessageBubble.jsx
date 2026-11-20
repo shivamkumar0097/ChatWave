@@ -82,6 +82,7 @@ export default function MessageBubble({
   }
 
   const openSheet = () => {
+    if (message.pending) return
     setSheetMode('actions')
     setSheetOpen(true)
   }
@@ -143,6 +144,7 @@ export default function MessageBubble({
   const closeSheet = () => setSheetOpen(false)
 
   const statusIcon = mine && (
+    (message.pending && <Clock size={14} className="text-white/60" />) ||
     (message.status === 'read' && <CheckCheck size={14} className="text-accent-2" />) ||
     (message.status === 'delivered' && <CheckCheck size={14} className="text-white/75" />) || (
       <Check size={14} className="text-white/60" />
@@ -373,6 +375,7 @@ export default function MessageBubble({
           )}
           {bubble}
 
+          {!message.pending && (
           <div
             className={`absolute top-1/2 hidden -translate-y-1/2 gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 sm:flex ${
               mine ? 'right-full mr-2' : 'left-full ml-2'
@@ -399,6 +402,7 @@ export default function MessageBubble({
               </button>
             )}
           </div>
+          )}
         </div>
       </div>
 

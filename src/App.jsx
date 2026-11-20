@@ -259,7 +259,7 @@ function ChatApp() {
 
   const handleSend = async (text, options) => {
     if (!activeId) return
-    if (soundOn) playSendSound()
+    if (soundOn) window.setTimeout(playSendSound, 0)
     const { error } = await sendMessage(activeId, text, null, {
       ...options,
       timer: activeChat?.disappearingTimer,

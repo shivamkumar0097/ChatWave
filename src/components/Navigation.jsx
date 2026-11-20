@@ -49,12 +49,20 @@ export default function Navigation({ active, onChange, mobile = false }) {
               key={tab.key}
               type="button"
               onClick={() => onChange(tab.key)}
-              className={`flex min-w-16 flex-col items-center gap-1 py-2 text-[10px] font-medium transition-colors ${
+              className={`relative flex min-w-16 flex-col items-center gap-1 rounded-xl px-2 py-2 text-[10px] font-medium transition-all duration-300 ${
                 activeTab ? 'text-wa-green' : 'text-wa-muted'
               }`}
             >
-              <tab.icon size={19} />
-              {tab.label}
+              <span
+                className={`pointer-events-none absolute inset-x-1 inset-y-0.5 rounded-xl border border-white/15 bg-white/[0.12] shadow-[0_8px_24px_-10px_rgba(124,92,255,0.9)] backdrop-blur-xl transition-all duration-300 ${
+                  activeTab ? 'scale-100 opacity-100' : 'scale-90 opacity-0'
+                }`}
+              />
+              <tab.icon
+                size={19}
+                className={`relative transition-transform duration-300 ${activeTab ? '-translate-y-0.5 scale-110' : ''}`}
+              />
+              <span className="relative">{tab.label}</span>
             </button>
           )
         })}
@@ -76,12 +84,20 @@ export default function Navigation({ active, onChange, mobile = false }) {
             onClick={() => onChange(tab.key)}
             title={tab.label}
             aria-label={tab.label}
-            className={`flex w-16 flex-col items-center gap-1 rounded-2xl py-2.5 transition-colors ${
-              activeTab ? 'bg-wa-green/10 text-wa-green' : 'text-wa-muted hover:bg-white/[0.04]'
+            className={`relative flex w-16 flex-col items-center gap-1 rounded-2xl py-2.5 transition-all duration-300 ${
+              activeTab ? 'text-wa-green' : 'text-wa-muted hover:text-wa-text'
             }`}
           >
-            <tab.icon size={20} />
-            <span className="text-[9.5px] font-medium">{tab.label}</span>
+            <span
+              className={`pointer-events-none absolute inset-0 rounded-2xl border border-white/15 bg-white/[0.1] shadow-[0_10px_30px_-12px_rgba(124,92,255,0.9)] backdrop-blur-xl transition-all duration-300 ${
+                activeTab ? 'scale-100 opacity-100' : 'scale-90 opacity-0'
+              }`}
+            />
+            <tab.icon
+              size={20}
+              className={`relative transition-transform duration-300 ${activeTab ? '-translate-y-0.5 scale-110' : ''}`}
+            />
+            <span className="relative text-[9.5px] font-medium">{tab.label}</span>
           </button>
         )
       })}

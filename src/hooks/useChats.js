@@ -670,6 +670,8 @@ export function useChats(user, activeId) {
 
       const fullColumns =
         'id, conversation_id, sender_id, content, image_url, reply_to, reactions, forwarded, created_at, edited_at, deleted_for_all, file_url, file_name, file_type, file_size, expires_at, view_once, viewed_by'
+      const fileColumns =
+        'id, conversation_id, sender_id, content, image_url, reply_to, reactions, forwarded, created_at, edited_at, deleted_for_all, file_url, file_name, file_type, file_size'
       const midColumns =
         'id, conversation_id, sender_id, content, image_url, reply_to, reactions, forwarded, created_at'
       const baseColumns = 'id, conversation_id, sender_id, content, image_url, created_at'
@@ -680,6 +682,12 @@ export function useChats(user, activeId) {
       const attempt = await supabase.from('messages').insert(row).select(fullColumns).single()
       data = attempt.data
       error = attempt.error
+
+      if (error && options.fileUrl) {
+        const retry = await supabase.from('messages').insert(legacyRow).select(fileColumns).single()
+        data = retry.data
+        error = retry.error
+      }
 
       if (error && !options.fileUrl) {
         // schema8 not applied — retry without the new columns

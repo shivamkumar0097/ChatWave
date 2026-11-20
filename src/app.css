@@ -98,6 +98,24 @@
   transform: scale(0.94);
 }
 
+@keyframes voice-bar-pulse {
+  0%,
+  100% {
+    transform: scaleY(0.7);
+  }
+  50% {
+    transform: scaleY(1.25);
+  }
+}
+
+.voice-bar {
+  transform-origin: center;
+}
+
+.voice-bar-playing {
+  animation: voice-bar-pulse 0.65s ease-in-out infinite;
+}
+
 .tab-fade {
   animation: tab-fade 0.25s ease both;
 }

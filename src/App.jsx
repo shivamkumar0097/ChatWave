@@ -357,7 +357,7 @@ function ChatApp() {
       })
 
     setUploading(false)
-    if (sendError) showToast('Could not send the attachment.')
+    if (sendError) showToast(sendError.message || 'Could not send the attachment.')
   }
 
   const handleReact = (message, emoji) => {

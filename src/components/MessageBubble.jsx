@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react'
 import EmojiText from '@/components/EmojiText'
+import VoiceNote from '@/components/VoiceNote'
 
 const REACTIONS = ['❤️', '😂', '😮', '😢', '🙏', '👍']
 
@@ -252,12 +253,7 @@ export default function MessageBubble({
           )}
 
           {message.fileUrl && message.fileType?.startsWith('audio/') && (
-            <div className="mb-1 min-w-56">
-              <audio controls src={message.fileUrl} className="w-full" />
-              <p className={`mt-1 truncate text-[11px] ${mine ? 'text-white/75' : 'text-wa-muted'}`}>
-                {message.fileName}
-              </p>
-            </div>
+            <VoiceNote url={message.fileUrl} mine={mine} />
           )}
 
           {message.fileUrl && message.fileType?.startsWith('video/') && (

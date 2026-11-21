@@ -8,6 +8,7 @@ import { usePresence } from '@/hooks/usePresence'
 import { useCall } from '@/hooks/useCall'
 import { useBlocked } from '@/hooks/useBlocked'
 import { useStatuses } from '@/hooks/useStatuses'
+import { useVisualViewport } from '@/hooks/useVisualViewport'
 import { supabase } from '@/lib/supabase'
 import { playSendSound } from '@/lib/sound'
 import AppLock from '@/components/AppLock'
@@ -105,6 +106,7 @@ function readIdSet(key) {
 }
 
 function ChatApp() {
+  useVisualViewport()
   const { user, loading, signOut } = useAuth()
   const {
     incoming,

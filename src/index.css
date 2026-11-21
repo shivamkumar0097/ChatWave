@@ -443,6 +443,23 @@ body {
   html {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    overflow: hidden;
+  }
+
+  #root {
+    height: var(--cw-vv-height, 100%);
+  }
+
+  .cw-chat-header {
+    padding-top: calc(0.625rem + env(safe-area-inset-top, 0px));
+  }
+
+  .cw-composer {
+    padding-bottom: calc(0.625rem + env(safe-area-inset-bottom, 0px));
   }
 
   * {
@@ -470,3 +487,33 @@ body {
     user-select: text;
   }
 }
+
+[class~='text-[9px]'] { font-size: 11px; }
+[class~='text-[9.5px]'] { font-size: 11.5px; }
+[class~='text-[10px]'] { font-size: 12px; }
+[class~='text-[10.5px]'] { font-size: 12.5px; }
+[class~='text-[11px]'] { font-size: 13px; }
+[class~='text-[11.5px]'] { font-size: 13.5px; }
+[class~='text-[12px]'] { font-size: 14px; }
+[class~='text-[12.5px]'] { font-size: 14.5px; }
+[class~='text-[13px]'] { font-size: 14.5px; }
+[class~='text-[13.5px]'] { font-size: 15px; }
+[class~='text-[14px]'] { font-size: 15.5px; }
+[class~='text-[14.5px]'] { font-size: 16px; }
+[class~='text-[15px]'] { font-size: 16.5px; }
+[class~='text-[15.5px]'] { font-size: 17px; }
+[class~='text-[16px]'] { font-size: 17.5px; }
+[class~='text-[17px]'] { font-size: 18.5px; }
+[class~='text-[18px]'] { font-size: 19.5px; }
+[class~='text-[19px]'] { font-size: 20.5px; }
+[class~='text-[20px]'] { font-size: 21.5px; }
+[class~='text-[22px]'] { font-size: 23px; }
+[class~='text-[26px]'] { font-size: 27px; }
+[class~='text-[30px]'] { font-size: 31px; }
+
+.text-xs { font-size: 13px; }
+.text-sm { font-size: 15px; }
+.text-base { font-size: 16.5px; }
+.text-lg { font-size: 18px; }
+.input-luxe { font-size: 1rem; }
+

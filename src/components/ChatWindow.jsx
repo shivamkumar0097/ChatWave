@@ -366,7 +366,7 @@ export default function ChatWindow({
 
   return (
     <section className={`relative h-full min-w-0 flex-1 flex-col ${className}`}>
-      <header className="animate-slide-down relative z-20 flex items-center gap-2 border-b border-white/[0.05] bg-[#0a0c14]/75 px-2 py-2.5 backdrop-blur-xl sm:gap-3 sm:px-4">
+      <header className="cw-chat-header animate-slide-down sticky top-0 z-20 flex shrink-0 items-center gap-2 border-b border-white/[0.05] bg-[#0a0c14]/75 px-2 py-2.5 backdrop-blur-xl sm:gap-3 sm:px-4">
         <button
           type="button"
           onClick={onBack}
@@ -642,7 +642,7 @@ export default function ChatWindow({
           if (!node) return
           atBottomRef.current = node.scrollHeight - node.scrollTop - node.clientHeight < 120
         }}
-        className="chat-wallpaper flex-1 space-y-2 overflow-y-auto px-3 py-5 sm:px-6"
+        className="chat-wallpaper min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-5 sm:px-6"
         style={wallpaperPreset.style || undefined}
       >
         {timeline.length === 0 && (

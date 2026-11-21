@@ -291,7 +291,7 @@ export default function Composer({
   return (
     <form
       onSubmit={submit}
-      className="animate-fade-up relative flex flex-col gap-2 border-t border-white/[0.05] bg-[#0a0c14]/80 px-2.5 py-2.5 backdrop-blur-xl sm:px-5"
+      className="cw-composer animate-fade-up relative flex shrink-0 flex-col gap-2 border-t border-white/[0.05] bg-[#0a0c14]/80 px-2.5 py-2.5 backdrop-blur-xl sm:px-5"
     >
       {recordError && (
         <p className="w-full rounded-xl border border-red-400/25 bg-red-500/10 px-3 py-1.5 text-[11.5px] text-red-200">

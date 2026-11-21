@@ -85,7 +85,7 @@ Each migration is idempotent where possible (`if not exists` / `drop policy if e
 
 Calls use free public STUN servers and need microphone/camera permission plus HTTPS (localhost and Netlify both work). For calls behind restrictive NAT, add a TURN server to `VITE_TURN_URL`, `VITE_TURN_USERNAME` and `VITE_TURN_CREDENTIAL` in `.env`; calls are 1:1 only.
 
-For PWA + background push: run `schema18.sql`, deploy to Netlify, and set `VITE_VAPID_PUBLIC_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `WEBHOOK_SECRET`, `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in Netlify environment variables. Then create a Supabase Database Webhook on `messages` (INSERT) pointing to `https://<your-site>/.netlify/functions/notify` with header `x-webhook-secret` equal to `WEBHOOK_SECRET`. Install via the browser's "Add to Home Screen" and enable Push notifications in Settings.
+For PWA + background push: run `schema18.sql`, deploy to Vercel, and set `VITE_VAPID_PUBLIC_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `WEBHOOK_SECRET`, `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in the Vercel project's environment variables. Then create a Supabase Database Webhook on `messages` (INSERT) pointing to `https://<your-site>/api/notify` with header `x-webhook-secret` equal to `WEBHOOK_SECRET`. Install via the browser's "Add to Home Screen" and enable Push notifications in Settings. The same webhook handler also works on Netlify at `/.netlify/functions/notify`.
 
 ### 4. Run the app
 

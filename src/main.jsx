@@ -15,7 +15,9 @@ window.addEventListener('beforeinstallprompt', (event) => {
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch((error) => {
+    navigator.serviceWorker.register('/sw.js').then((registration) => {
+      registration.update().catch(() => {})
+    }).catch((error) => {
       console.warn('Service worker registration failed', error)
     })
   })

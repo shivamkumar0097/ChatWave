@@ -1,4 +1,4 @@
-const CACHE = 'chatwave-v3'
+const CACHE = 'chatwave-v4'
 const SHELL = ['/', '/index.html', '/logo.jpg', '/icons/icon-192.png', '/icons/icon-512.png']
 
 self.addEventListener('install', (event) => {
@@ -72,9 +72,14 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   const action = event.action
+  const data = event.notification.data || {}
   event.notification.close()
-  let target = event.notification.data?.url || '/'
-  if ((action === 'answer' || action === 'decline') && target.includes('call=')) {
+  let target = data.url || '/'
+  if (action === 'message' && data.chatUrl) {
+    target = data.chatUrl
+  } else if (action === 'callback' && target.includes('missed=')) {
+    target += `${target.includes('?') ? '&' : '?'}action=callback`
+  } else if ((action === 'answer' || action === 'decline') && target.includes('call=')) {
     target += `${target.includes('?') ? '&' : '?'}action=${action}`
   }
   event.waitUntil(

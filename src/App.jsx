@@ -285,6 +285,22 @@ function ChatApp() {
   useNotificationSound(soundOn)
   useDesktopNotifications()
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const chatId = params.get('chat')
+    if (!chatId) return
+    params.delete('chat')
+    const query = params.toString()
+    window.history.replaceState(
+      {},
+      '',
+      `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`
+    )
+    setActiveId(chatId)
+    setMobileChatOpen(true)
+    markRead(chatId)
+  }, [markRead])
+
   const toggleSound = () => {
     setSoundOn((current) => {
       window.localStorage.setItem('cw-sound', current ? 'off' : 'on')

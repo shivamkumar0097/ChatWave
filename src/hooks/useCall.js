@@ -89,6 +89,7 @@ export function useCall(user) {
   const signalHandlerRef = useRef(null)
   const inviteCallIdRef = useRef(null)
   const acceptCallRef = useRef(null)
+  const startCallRef = useRef(null)
 
   const clearInvite = useCallback((callId) => {
     if (!callId || !supabase) return
@@ -123,6 +124,42 @@ export function useCall(user) {
       })
     } catch {}
   }, [])
+
+  const showMissedNotification = useCallback(
+    async ({ callId, peerId, peerName, conversationId, outgoing = false }) => {
+      if (!('Notification' in window) || !('serviceWorker' in navigator)) return
+      if (Notification.permission !== 'granted') return
+      try {
+        const registration = await Promise.race([
+          navigator.serviceWorker.ready,
+          new Promise((resolve) => window.setTimeout(() => resolve(null), 800)),
+        ])
+        if (!registration) return
+        const query = new URLSearchParams({
+          missed: callId,
+          peer: peerId || '',
+          conv: conversationId || '',
+          name: peerName || '',
+        })
+        await registration.showNotification('Missed call', {
+          body: outgoing ? `No answer from ${peerName || 'Someone'}` : `Missed call from ${peerName || 'Someone'}`,
+          icon: '/icons/icon-192.png',
+          badge: '/icons/icon-192.png',
+          tag: `cw-call-${callId}`,
+          renotify: true,
+          data: {
+            url: `/?${query.toString()}`,
+            chatUrl: conversationId ? `/?chat=${encodeURIComponent(conversationId)}` : '/',
+          },
+          actions: [
+            { action: 'callback', title: 'Call back' },
+            { action: 'message', title: 'Message' },
+          ],
+        })
+      } catch {}
+    },
+    []
+  )
 
   const showIncoming = useCallback((offer) => {
     if (callRef.current || incomingRef.current) return false
@@ -360,14 +397,44 @@ export function useCall(user) {
         return
       }
 
+      if (type === 'missed') {
+        if (incomingRef.current?.callId !== payload.callId && current?.callId !== payload.callId) return
+        const offer = incomingRef.current
+        if (offer && !current) {
+          stopRingtone()
+          showMissedNotification({
+            callId: payload.callId,
+            peerId: offer.peerId,
+            peerName: offer.peerName,
+            conversationId: offer.conversationId,
+          })
+          incomingRef.current = null
+          setIncoming(null)
+        }
+        clearInvite(payload.callId)
+        inviteCallIdRef.current = null
+        if (!current) cleanup(false)
+        return
+      }
+
       if (type === 'end' || type === 'decline' || type === 'busy') {
         if (type === 'end' && current?.callId !== payload.callId && incomingRef.current?.callId !== payload.callId) return
+        const offer = !current && incomingRef.current?.callId === payload.callId ? incomingRef.current : null
+        if (offer && type === 'end') {
+          stopRingtone()
+          showMissedNotification({
+            callId: payload.callId,
+            peerId: offer.peerId,
+            peerName: offer.peerName,
+            conversationId: offer.conversationId,
+          })
+        }
         cleanup(false)
         if (type === 'decline') showNotice('Call declined')
         if (type === 'busy') showNotice('User is busy')
       }
     },
-    [user, sendSignal, applyPendingIce, cleanup, showNotice, patchCall, showIncoming]
+    [user, sendSignal, applyPendingIce, cleanup, showNotice, patchCall, showIncoming, showMissedNotification, clearInvite]
   )
 
   useEffect(() => {
@@ -447,18 +514,34 @@ export function useCall(user) {
     if (!user || !supabase) return
     const params = new URLSearchParams(window.location.search)
     const callId = params.get('call')
-    if (!callId) return
+    const callbackPeer = params.get('peer')
+    const callbackConv = params.get('conv')
+    const callbackName = params.get('name')
     const caller = params.get('caller')
     const action = params.get('action')
-    params.delete('call')
-    params.delete('caller')
-    params.delete('action')
+    if (!callId && !callbackPeer) return
+    ;['call', 'caller', 'action', 'missed', 'peer', 'conv', 'name'].forEach((key) =>
+      params.delete(key)
+    )
     const query = params.toString()
     window.history.replaceState(
       {},
       '',
       `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`
     )
+
+    if (action === 'callback' && callbackPeer) {
+      window.setTimeout(() => {
+        startCallRef.current?.({
+          conversationId: callbackConv || undefined,
+          peerId: callbackPeer,
+          peerName: callbackName || 'Someone',
+          withVideo: false,
+        })
+      }, 50)
+      return
+    }
+    if (!callId) return
 
     const restore = async () => {
       const { data } = await supabase
@@ -469,13 +552,19 @@ export function useCall(user) {
         .maybeSingle()
       if (!data || data.status !== 'pending') return
       inviteCallIdRef.current = callId
+      const details = data.payload || {}
       if (action === 'decline') {
         if (caller) await sendSignal(caller, { type: 'decline', callId })
+        showMissedNotification({
+          callId,
+          peerId: data.caller_id,
+          peerName: details.fromName,
+          conversationId: details.conversationId,
+        })
         await supabase.from('call_invites').update({ status: 'declined' }).eq('call_id', callId)
         inviteCallIdRef.current = null
         return
       }
-      const details = data.payload || {}
       const offer = {
         callId,
         conversationId: details.conversationId,
@@ -488,10 +577,14 @@ export function useCall(user) {
         sdp: details.sdp,
       }
       showIncoming(offer)
-      if (action === 'answer') await acceptCallRef.current?.()
+      if (action === 'answer') {
+        window.setTimeout(() => {
+          acceptCallRef.current?.()
+        }, 50)
+      }
     }
     restore()
-  }, [user, sendSignal, showIncoming])
+  }, [user, sendSignal, showIncoming, showMissedNotification])
 
   useEffect(
     () => () => {
@@ -612,13 +705,25 @@ export function useCall(user) {
 
       timerRef.current = window.setTimeout(() => {
         if (callRef.current?.phase === 'calling') {
+          sendSignal(peerId, { type: 'missed', callId })
+          showMissedNotification({
+            callId,
+            peerId,
+            peerName,
+            conversationId,
+            outgoing: true,
+          })
           showNotice('No answer')
           cleanup(false)
         }
       }, 45000)
     },
-    [user, getStream, preparePeer, sendSignal, showNotice, cleanup, pushEntry]
+    [user, getStream, preparePeer, sendSignal, showNotice, cleanup, pushEntry, showMissedNotification]
   )
+
+  useEffect(() => {
+    startCallRef.current = startCall
+  }, [startCall])
 
   const acceptCall = useCallback(async () => {
     const offer = incomingRef.current
@@ -695,6 +800,12 @@ export function useCall(user) {
     if (!offer) return
     stopRingtone()
     await sendSignal(offer.peerId, { type: 'decline', callId: offer.callId })
+    showMissedNotification({
+      callId: offer.callId,
+      peerId: offer.peerId,
+      peerName: offer.peerName,
+      conversationId: offer.conversationId,
+    })
     clearInvite(offer.callId)
     inviteCallIdRef.current = null
     pushEntry({
@@ -711,7 +822,7 @@ export function useCall(user) {
     })
     incomingRef.current = null
     setIncoming(null)
-  }, [sendSignal, pushEntry, clearInvite])
+  }, [sendSignal, pushEntry, clearInvite, showMissedNotification])
 
   const switchCamera = useCallback(async () => {
     const stream = localRef.current

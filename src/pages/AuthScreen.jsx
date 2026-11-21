@@ -185,7 +185,7 @@ export default function AuthScreen() {
   }
 
   return (
-    <div className="relative min-h-full overflow-hidden bg-wa-bg px-4 py-10 sm:px-6 lg:px-10">
+    <div className="relative h-full overflow-x-hidden overflow-y-auto bg-wa-bg px-4 py-10 sm:px-6 lg:px-10">
       <div className="aurora-blob left-[-8%] top-[-12%] h-80 w-80 bg-[#7c5cff]/50" />
       <div
         className="aurora-blob right-[-6%] top-[18%] h-72 w-72 bg-[#22d3ee]/35"

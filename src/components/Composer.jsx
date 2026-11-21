@@ -410,8 +410,8 @@ export default function Composer({
           </button>
         </div>
       ) : (
-        <div className="flex w-full items-end gap-1.5 sm:gap-2">
-          <div ref={wrapRef}>
+        <div className="flex min-w-0 w-full items-end gap-1.5 sm:gap-2">
+          <div ref={wrapRef} className="shrink-0">
             <button
               type="button"
               onClick={() => setEmojiOpen((open) => !open)}
@@ -429,7 +429,7 @@ export default function Composer({
             )}
           </div>
 
-          <div ref={attachWrapRef} className="relative">
+          <div ref={attachWrapRef} className="relative shrink-0">
             <button
               type="button"
               onClick={() => setAttachOpen((open) => !open)}
@@ -505,7 +505,7 @@ export default function Composer({
                     ? 'Add a caption...'
                     : 'Write a message...'
             }
-            className="min-h-11 flex-1 rounded-2xl border border-white/[0.06] bg-white/[0.04] px-4 py-2.5 text-[15px] text-wa-text outline-none transition-all duration-200 placeholder:text-wa-muted focus:border-wa-green/50 focus:bg-white/[0.055] focus:shadow-[0_0_0_4px_rgba(124,92,255,0.12)]"
+            className="min-h-11 min-w-0 flex-1 rounded-2xl border border-white/[0.06] bg-white/[0.04] px-4 py-2.5 text-[15px] text-wa-text outline-none transition-all duration-200 placeholder:text-wa-muted focus:border-wa-green/50 focus:bg-white/[0.055] focus:shadow-[0_0_0_4px_rgba(124,92,255,0.12)]"
           />
 
           {!editing && !text.trim() && !pending && !uploading ? (

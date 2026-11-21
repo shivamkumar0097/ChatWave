@@ -4,7 +4,8 @@ const VAPID_PUBLIC_KEY =
   import.meta.env.VITE_VAPID_PUBLIC_KEY ||
   'BHgTBzAQ1HCx4VjnG9mzY7FLkRayyrLr6XJzIyYw8zDm1-0yN5wktqy90ovrQJ073jSqSUhfoY-1-7SwJh_Ycpw'
 
-const urlBase64ToUint8Array = (base64) => {
+const urlBase64ToUint8Array = (base64url) => {
+  const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/').replace(/\s/g, '')
   const padding = '='.repeat((4 - (base64.length % 4)) % 4)
   const raw = atob(base64 + padding)
   const output = new Uint8Array(raw.length)

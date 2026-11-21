@@ -74,8 +74,8 @@ self.addEventListener('notificationclick', (event) => {
   const action = event.action
   event.notification.close()
   let target = event.notification.data?.url || '/'
-  if (action === 'decline' && target.includes('call=')) {
-    target += `${target.includes('?') ? '&' : '?'}action=decline`
+  if ((action === 'answer' || action === 'decline') && target.includes('call=')) {
+    target += `${target.includes('?') ? '&' : '?'}action=${action}`
   }
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clients) => {

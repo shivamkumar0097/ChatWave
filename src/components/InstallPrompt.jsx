@@ -1,68 +1,50 @@
 import { useEffect, useState } from 'react'
 import { Download, X } from 'lucide-react'
-
-const DISMISSED_KEY = 'cw-install-dismissed'
+import { useAuth } from '@/context/AuthContext'
 
 const isStandalone = () =>
   window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true
 
 export default function InstallPrompt() {
+  const { user, loading } = useAuth()
   const [prompt, setPrompt] = useState(null)
-  const [visible, setVisible] = useState(false)
   const [help, setHelp] = useState(false)
   const [installed, setInstalled] = useState(isStandalone)
+  const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
-    if (isStandalone() || window.localStorage.getItem(DISMISSED_KEY) === '1') return undefined
-
-    let timer = null
     const showPrompt = (event) => {
-      if (timer) window.clearTimeout(timer)
       event.preventDefault()
       window.cwInstallPrompt = event
       setPrompt(event)
       setHelp(false)
-      setVisible(true)
     }
     const onInstalled = () => {
-      setVisible(false)
       setInstalled(true)
-      window.localStorage.removeItem(DISMISSED_KEY)
+      window.cwInstallPrompt = null
     }
 
     window.addEventListener('beforeinstallprompt', showPrompt)
     window.addEventListener('appinstalled', onInstalled)
-
-    if (window.cwInstallPrompt) {
-      showPrompt(window.cwInstallPrompt)
-    } else {
-      timer = window.setTimeout(() => {
-        setHelp(true)
-        setVisible(true)
-      }, 3000)
-    }
+    if (window.cwInstallPrompt) showPrompt(window.cwInstallPrompt)
 
     return () => {
-      if (timer) window.clearTimeout(timer)
       window.removeEventListener('beforeinstallprompt', showPrompt)
       window.removeEventListener('appinstalled', onInstalled)
     }
   }, [])
 
-  if (installed || !visible) return null
+  if (installed || dismissed || loading || user) return null
 
   const install = async () => {
-    if (!prompt) return
+    if (!prompt) {
+      setHelp(true)
+      return
+    }
     prompt.prompt()
     await prompt.userChoice
-    setVisible(false)
     setPrompt(null)
     window.cwInstallPrompt = null
-  }
-
-  const dismiss = () => {
-    setVisible(false)
-    window.localStorage.setItem(DISMISSED_KEY, '1')
   }
 
   return (
@@ -80,27 +62,17 @@ export default function InstallPrompt() {
           <p className="text-[11px] text-wa-muted">Add it to your home screen for quick access</p>
         )}
       </div>
-      {help ? (
-        <button
-          type="button"
-          onClick={dismiss}
-          className="btn-accent shrink-0 rounded-xl px-3 py-2 text-[12px] font-semibold text-white"
-        >
-          Got it
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={install}
-          className="btn-accent flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-white"
-        >
-          <Download size={14} />
-          Install
-        </button>
-      )}
       <button
         type="button"
-        onClick={dismiss}
+        onClick={install}
+        className="btn-accent flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-white"
+      >
+        <Download size={14} />
+        Install
+      </button>
+      <button
+        type="button"
+        onClick={() => setDismissed(true)}
         className="shrink-0 p-1 text-wa-muted transition-colors hover:text-wa-text"
         aria-label="Dismiss"
       >

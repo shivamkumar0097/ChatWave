@@ -137,7 +137,7 @@ export default function ProfileModal({
   const [haptics, setHaptics] = useState(() => readBool('cw-haptics', true))
   const [reduceMotion, setReduceMotion] = useState(() => readBool('cw-reduce-motion', false))
   const [desktopNotifs, setDesktopNotifs] = useState(() =>
-    readBool('cw-desktop-notifications', false)
+    readBool('cw-desktop-notifications', true)
   )
   const fileRef = useRef(null)
 

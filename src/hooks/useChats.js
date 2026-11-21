@@ -343,7 +343,8 @@ export function useChats(user, activeId) {
         (payload) => {
           const row = payload.new
           const isActive = row.conversation_id === activeRef.current
-          const known = chatsRef.current.some((chat) => chat.id === row.conversation_id)
+          const chat = chatsRef.current.find((item) => item.id === row.conversation_id)
+          const known = Boolean(chat)
 
           if (row.sender_id !== user.id && (!isActive || document.hidden)) {
             const preview = row.view_once
@@ -354,7 +355,11 @@ export function useChats(user, activeId) {
                   (row.image_url ? 'Photo' : row.file_url ? row.file_name || 'Attachment' : 'New message')
             window.dispatchEvent(
               new CustomEvent('chatwave:incoming', {
-                detail: { conversationId: row.conversation_id, body: preview },
+                detail: {
+                  conversationId: row.conversation_id,
+                  body: preview,
+                  senderName: chat?.name || 'ChatWave',
+                },
               })
             )
           }

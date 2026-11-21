@@ -105,7 +105,7 @@ export async function handleNotify({ method, headers = {}, body }) {
     url: `/?chat=${record.conversation_id}`,
   })
 
-  await deliver(subscriptions, notification)
+  await deliver(subscriptions, notification, { urgency: 'high' })
 
   return { statusCode: 200, body: 'OK' }
 }

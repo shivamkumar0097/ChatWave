@@ -88,15 +88,46 @@ export function useCall(user) {
   const noticeTimerRef = useRef(null)
   const signalHandlerRef = useRef(null)
   const inviteCallIdRef = useRef(null)
+  const acceptCallRef = useRef(null)
 
   const clearInvite = useCallback((callId) => {
     if (!callId || !supabase) return
     supabase.from('call_invites').delete().eq('call_id', callId).then(() => {}).catch(() => {})
   }, [])
 
+  const notifyIncoming = useCallback(async (offer) => {
+    if (!document.hidden || !('Notification' in window) || !('serviceWorker' in navigator)) return
+    let permission = Notification.permission
+    if (permission === 'default') {
+      try {
+        permission = await Notification.requestPermission()
+      } catch {}
+    }
+    if (permission !== 'granted') return
+    try {
+      const registration = await navigator.serviceWorker.ready
+      await registration.showNotification(offer.peerName || 'Incoming call', {
+        body: offer.withVideo ? 'Incoming video call' : 'Incoming voice call',
+        icon: '/icons/icon-192.png',
+        badge: '/icons/icon-192.png',
+        tag: `cw-call-${offer.callId}`,
+        renotify: true,
+        requireInteraction: true,
+        data: {
+          url: `/?call=${encodeURIComponent(offer.callId)}&caller=${encodeURIComponent(offer.peerId)}`,
+        },
+        actions: [
+          { action: 'answer', title: 'Answer' },
+          { action: 'decline', title: 'Decline' },
+        ],
+      })
+    } catch {}
+  }, [])
+
   const showIncoming = useCallback((offer) => {
     if (callRef.current || incomingRef.current) return false
     incomingRef.current = offer
+    notifyIncoming(offer)
     setRemoteFacingMode(offer.facingMode === 'user' ? 'user' : 'environment')
     startRingtone()
     setIncoming({
@@ -109,7 +140,7 @@ export function useCall(user) {
       withVideo: offer.withVideo,
     })
     return true
-  }, [])
+  }, [notifyIncoming])
 
   const showNotice = useCallback((message) => {
     setNotice(message)
@@ -445,7 +476,7 @@ export function useCall(user) {
         return
       }
       const details = data.payload || {}
-      showIncoming({
+      const offer = {
         callId,
         conversationId: details.conversationId,
         peerId: data.caller_id,
@@ -455,7 +486,9 @@ export function useCall(user) {
         withVideo: Boolean(details.withVideo),
         facingMode: details.facingMode,
         sdp: details.sdp,
-      })
+      }
+      showIncoming(offer)
+      if (action === 'answer') await acceptCallRef.current?.()
     }
     restore()
   }, [user, sendSignal, showIncoming])
@@ -652,6 +685,10 @@ export function useCall(user) {
       facingMode: facingModeRef.current,
     })
   }, [getStream, preparePeer, applyPendingIce, sendSignal, showNotice, cleanup, pushEntry, clearInvite])
+
+  useEffect(() => {
+    acceptCallRef.current = acceptCall
+  }, [acceptCall])
 
   const declineCall = useCallback(async () => {
     const offer = incomingRef.current

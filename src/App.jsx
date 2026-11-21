@@ -18,6 +18,7 @@ import CallsPanel from '@/components/CallsPanel'
 import CommunityPanel from '@/components/CommunityPanel'
 import StatusPanel from '@/components/StatusPanel'
 import ContactCard from '@/components/ContactCard'
+import ConfirmDialog from '@/components/ConfirmDialog'
 import ChatWindow from '@/components/ChatWindow'
 import NewChatModal from '@/components/NewChatModal'
 import Navigation, { TabPlaceholder } from '@/components/Navigation'
@@ -153,6 +154,8 @@ function ChatApp() {
     () => window.localStorage.getItem('cw-app-lock') !== '1'
   )
   const [lockAction, setLockAction] = useState(null)
+  const [signOutOpen, setSignOutOpen] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
 
   useEffect(() => {
     document.documentElement.classList.toggle('light', theme === 'light')
@@ -167,6 +170,17 @@ function ChatApp() {
   }, [])
 
   const handleToggleLock = () => setLockAction(lockEnabled ? 'disable' : 'set')
+
+  const handleConfirmSignOut = async () => {
+    if (signingOut) return
+    setSigningOut(true)
+    try {
+      await signOut()
+    } finally {
+      setSigningOut(false)
+      setSignOutOpen(false)
+    }
+  }
 
   const handleForgotPin = () => {
     window.localStorage.removeItem('cw-app-pin')
@@ -674,7 +688,7 @@ function ChatApp() {
         onNewChat={() => setNewChatOpen(true)}
         onNewGroup={() => setNewGroupOpen(true)}
         onScan={() => setScannerOpen(true)}
-        onSignOut={signOut}
+        onSignOut={() => setSignOutOpen(true)}
         onProfile={() => openProfile('profile')}
         onSettings={() => openProfile('settings')}
         soundOn={soundOn}
@@ -832,9 +846,17 @@ function ChatApp() {
           onSaved={reload}
           onNotice={showSuccess}
           onError={showToast}
-          onSignOut={signOut}
+          onSignOut={() => setSignOutOpen(true)}
         />
       )}
+      <ConfirmDialog
+        open={signOutOpen}
+        busy={signingOut}
+        title="Log out of ChatWave?"
+        description="You will need to sign in again to continue. Your chats and settings stay safe."
+        onClose={() => setSignOutOpen(false)}
+        onConfirm={handleConfirmSignOut}
+      />
       {successNotice && (
         <div className="animate-pop-in fixed bottom-6 left-1/2 z-[110] flex -translate-x-1/2 items-center gap-2.5 rounded-2xl border border-wa-green/25 bg-[#0f2018]/95 px-4 py-2.5 text-[12px] text-emerald-200 shadow-2xl backdrop-blur">
           <Check size={15} className="shrink-0 text-wa-green" />

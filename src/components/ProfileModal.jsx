@@ -279,15 +279,13 @@ export default function ProfileModal({
   }
 
   const togglePush = async () => {
+    const next = !pushEnabled
+    setPushEnabled(next)
     try {
-      if (pushEnabled) {
-        await disablePush(user)
-        setPushEnabled(false)
-      } else {
-        await enablePush(user)
-        setPushEnabled(true)
-      }
+      if (next) await enablePush(user)
+      else await disablePush(user)
     } catch (error) {
+      setPushEnabled(!next)
       onError?.(error?.message || 'Could not update push notifications.')
     }
   }

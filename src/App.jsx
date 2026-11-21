@@ -115,6 +115,7 @@ function ChatApp() {
     localStream,
     remoteStream,
     facingMode,
+    remoteFacingMode,
     notice,
     startCall,
     acceptCall,
@@ -823,6 +824,7 @@ function ChatApp() {
         localStream={localStream}
         remoteStream={remoteStream}
         facingMode={facingMode}
+        remoteFacingMode={remoteFacingMode}
         notice={notice}
         onAccept={acceptCall}
         onDecline={declineCall}

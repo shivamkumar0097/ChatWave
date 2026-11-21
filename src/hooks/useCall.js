@@ -68,6 +68,7 @@ export function useCall(user) {
   const [localStream, setLocalStream] = useState(null)
   const [remoteStream, setRemoteStream] = useState(null)
   const [facingMode, setFacingMode] = useState('user')
+  const [remoteFacingMode, setRemoteFacingMode] = useState('environment')
   const [notice, setNotice] = useState('')
   const [history, setHistory] = useState(() => readHistory(user?.id))
 
@@ -80,6 +81,7 @@ export function useCall(user) {
   const pcRef = useRef(null)
   const localRef = useRef(null)
   const facingModeRef = useRef('user')
+  const switchingRef = useRef(false)
   const peerChannelsRef = useRef(new Map())
   const pendingIceRef = useRef([])
   const timerRef = useRef(null)
@@ -161,6 +163,7 @@ export function useCall(user) {
       setRemoteStream(null)
       facingModeRef.current = 'user'
       setFacingMode('user')
+      setRemoteFacingMode('environment')
     },
     [sendSignal]
   )
@@ -251,9 +254,11 @@ export function useCall(user) {
           peerAvatar: payload.fromAvatar || null,
           peerColor: payload.fromColor || null,
           withVideo: Boolean(payload.withVideo),
+          facingMode: payload.facingMode === 'user' ? 'user' : 'environment',
           sdp: payload.sdp,
         }
         incomingRef.current = offer
+        setRemoteFacingMode(offer.facingMode)
         startRingtone()
         setIncoming({
           callId: offer.callId,
@@ -280,7 +285,14 @@ export function useCall(user) {
         }
         stopRingtone()
         await applyPendingIce(pc)
+        setRemoteFacingMode(payload.facingMode === 'user' ? 'user' : 'environment')
         patchCall({ phase: 'connecting' })
+        return
+      }
+
+      if (type === 'camera') {
+        if (!current || current.callId !== payload.callId) return
+        setRemoteFacingMode(payload.facingMode === 'user' ? 'user' : 'environment')
         return
       }
 
@@ -396,20 +408,21 @@ export function useCall(user) {
   )
 
   const getStream = useCallback(async (withVideo, mode = 'user') => {
-    const video = withVideo ? { facingMode: { ideal: mode } } : false
-    try {
-      return await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video })
-    } catch {
-      if (withVideo) {
+    const constrained = withVideo ? { facingMode: { ideal: mode } } : false
+    if (withVideo) {
+      for (const video of [constrained, true]) {
         try {
-          return await navigator.mediaDevices.getUserMedia({ video, audio: false })
+          return await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video })
         } catch {}
       }
       try {
-        return await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+        return await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
       } catch {}
-      return null
     }
+    try {
+      return await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+    } catch {}
+    return null
   }, [])
 
   const startCall = useCallback(
@@ -462,6 +475,7 @@ export function useCall(user) {
         fromAvatar: selfAvatar,
         fromColor: selfColor,
         withVideo: info.withVideo,
+        facingMode: facingModeRef.current,
       })
       if (!sent) {
         showNotice('Could not reach the other user')
@@ -554,6 +568,7 @@ export function useCall(user) {
       type: 'answer',
       callId: info.callId,
       sdp: descriptionOf(pc.localDescription),
+      facingMode: facingModeRef.current,
     })
   }, [getStream, preparePeer, applyPendingIce, sendSignal, showNotice, cleanup, pushEntry])
 
@@ -581,24 +596,76 @@ export function useCall(user) {
   const switchCamera = useCallback(async () => {
     const stream = localRef.current
     const pc = pcRef.current
-    if (!stream || !pc || pc.signalingState === 'closed') return
-    if (!stream.getVideoTracks().length) return
+    if (switchingRef.current || !stream || !pc || pc.signalingState === 'closed') return
+    const oldTrack = stream.getVideoTracks()[0]
+    if (!oldTrack) return
+    switchingRef.current = true
 
     const nextFacing = facingModeRef.current === 'user' ? 'environment' : 'user'
-    let nextStream
+    const currentId = oldTrack.getSettings?.().deviceId
+    let devices = []
     try {
-      nextStream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: { facingMode: { ideal: nextFacing } },
-      })
-    } catch {
-      showNotice('Could not switch camera')
+      devices = (await navigator.mediaDevices.enumerateDevices()).filter(
+        (device) => device.kind === 'videoinput'
+      )
+    } catch {}
+    const alternate = devices.find((device) => device.deviceId && device.deviceId !== currentId)
+
+    if (devices.length === 1 && !alternate) {
+      switchingRef.current = false
+      showNotice('Only one camera available')
       return
     }
 
-    const nextTrack = nextStream.getVideoTracks()[0]
+    const request = async (video) => navigator.mediaDevices.getUserMedia({ audio: false, video })
+    const attempts = []
+    if (alternate?.deviceId) {
+      attempts.push({ video: { deviceId: { exact: alternate.deviceId } }, exact: true, switched: true })
+    }
+    attempts.push({ video: { facingMode: { exact: nextFacing } }, exact: true, switched: true })
+    attempts.push({ video: { facingMode: { ideal: nextFacing } }, facing: nextFacing, switched: true })
+    attempts.push({ video: true, exact: true, switched: false })
+
+    stream.removeTrack(oldTrack)
+    oldTrack.stop()
+    await new Promise((resolve) => window.setTimeout(resolve, 120))
+
+    let nextStream = null
+    let switched = false
+    for (const attempt of attempts) {
+      try {
+        const candidate = await request(attempt.video)
+        const track = candidate.getVideoTracks()[0]
+        if (!track) {
+          candidate.getTracks().forEach((item) => item.stop())
+          continue
+        }
+        const settings = track.getSettings?.()
+        const matches = attempt.exact || (settings?.facingMode && settings.facingMode === attempt.facing)
+        if (matches) {
+          nextStream = candidate
+          switched = attempt.switched
+          break
+        }
+        candidate.getTracks().forEach((item) => item.stop())
+      } catch {}
+    }
+
+    if (!nextStream) {
+      for (const video of [{ facingMode: { ideal: facingModeRef.current } }, true]) {
+        try {
+          const candidate = await request(video)
+          if (candidate.getVideoTracks().length) {
+            nextStream = candidate
+            break
+          }
+        } catch {}
+      }
+    }
+
+    const nextTrack = nextStream?.getVideoTracks()[0]
     if (!nextTrack) {
-      nextStream.getTracks().forEach((track) => track.stop())
+      switchingRef.current = false
       showNotice('Could not switch camera')
       return
     }
@@ -606,28 +673,36 @@ export function useCall(user) {
     const sender = pc.getSenders().find((item) => item.track?.kind === 'video')
     if (!sender) {
       nextTrack.stop()
+      switchingRef.current = false
       return
     }
     try {
       await sender.replaceTrack(nextTrack)
     } catch {
       nextTrack.stop()
+      switchingRef.current = false
       showNotice('Could not switch camera')
       return
     }
 
-    const oldTrack = stream.getVideoTracks()[0]
-    if (oldTrack) {
-      stream.removeTrack(oldTrack)
-      oldTrack.stop()
-    }
     stream.addTrack(nextTrack)
-    facingModeRef.current = nextFacing
-    setFacingMode(nextFacing)
+    const effectiveFacing = switched ? nextFacing : facingModeRef.current
+    facingModeRef.current = effectiveFacing
+    setFacingMode(effectiveFacing)
     const updated = new MediaStream(stream.getTracks())
     localRef.current = updated
     setLocalStream(updated)
-  }, [showNotice])
+    switchingRef.current = false
+
+    const current = callRef.current
+    if (current) {
+      sendSignal(current.peerId, {
+        type: 'camera',
+        callId: current.callId,
+        facingMode: effectiveFacing,
+      })
+    }
+  }, [sendSignal, showNotice])
 
   const endCall = useCallback(() => cleanup(true), [cleanup])
 
@@ -647,6 +722,7 @@ export function useCall(user) {
     localStream,
     remoteStream,
     facingMode,
+    remoteFacingMode,
     notice,
     startCall,
     acceptCall,

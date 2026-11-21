@@ -42,6 +42,7 @@ export default function CallOverlay({
   localStream,
   remoteStream,
   facingMode,
+  remoteFacingMode,
   notice,
   onAccept,
   onDecline,
@@ -139,7 +140,9 @@ export default function CallOverlay({
                 ref={remoteVideoRef}
                 autoPlay
                 playsInline
-                className="max-h-[64vh] w-full rounded-3xl bg-black object-contain shadow-2xl max-sm:h-full max-sm:max-h-none max-sm:w-full max-sm:rounded-none max-sm:object-cover max-sm:shadow-none"
+                className={`max-h-[64vh] w-full rounded-3xl bg-black object-contain shadow-2xl max-sm:h-full max-sm:max-h-none max-sm:w-full max-sm:rounded-none max-sm:object-cover max-sm:shadow-none ${
+                  remoteFacingMode === 'user' ? '-scale-x-100' : ''
+                }`}
               />
               {localStream && (
                 <div className="absolute bottom-3 right-3 flex flex-col items-end gap-2 max-sm:bottom-24">

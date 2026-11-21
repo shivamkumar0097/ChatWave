@@ -8,9 +8,16 @@ if (window.localStorage.getItem('cw-theme') === 'light') {
   document.documentElement.classList.add('light')
 }
 
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault()
+  window.cwInstallPrompt = event
+})
+
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {})
+    navigator.serviceWorker.register('/sw.js').catch((error) => {
+      console.warn('Service worker registration failed', error)
+    })
   })
 }
 

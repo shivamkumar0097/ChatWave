@@ -87,6 +87,29 @@ export function useCall(user) {
   const timerRef = useRef(null)
   const noticeTimerRef = useRef(null)
   const signalHandlerRef = useRef(null)
+  const inviteCallIdRef = useRef(null)
+
+  const clearInvite = useCallback((callId) => {
+    if (!callId || !supabase) return
+    supabase.from('call_invites').delete().eq('call_id', callId).then(() => {}).catch(() => {})
+  }, [])
+
+  const showIncoming = useCallback((offer) => {
+    if (callRef.current || incomingRef.current) return false
+    incomingRef.current = offer
+    setRemoteFacingMode(offer.facingMode === 'user' ? 'user' : 'environment')
+    startRingtone()
+    setIncoming({
+      callId: offer.callId,
+      conversationId: offer.conversationId,
+      peerId: offer.peerId,
+      peerName: offer.peerName,
+      avatarUrl: offer.peerAvatar,
+      avatarColor: offer.peerColor,
+      withVideo: offer.withVideo,
+    })
+    return true
+  }, [])
 
   const showNotice = useCallback((message) => {
     setNotice(message)
@@ -159,13 +182,15 @@ export function useCall(user) {
       callRef.current = null
       setIncoming(null)
       setCall(null)
+      clearInvite(inviteCallIdRef.current)
+      inviteCallIdRef.current = null
       setLocalStream(null)
       setRemoteStream(null)
       facingModeRef.current = 'user'
       setFacingMode('user')
       setRemoteFacingMode('environment')
     },
-    [sendSignal]
+    [sendSignal, clearInvite]
   )
 
   const patchCall = useCallback((patch) => {
@@ -230,6 +255,7 @@ export function useCall(user) {
       const type = payload.type
 
       if (type === 'offer') {
+        if (incomingRef.current?.callId === payload.callId) return
         if (current || incomingRef.current) {
           await sendSignal(payload.from, { type: 'busy', callId: payload.callId })
           pushEntryRef.current?.({
@@ -257,18 +283,7 @@ export function useCall(user) {
           facingMode: payload.facingMode === 'user' ? 'user' : 'environment',
           sdp: payload.sdp,
         }
-        incomingRef.current = offer
-        setRemoteFacingMode(offer.facingMode)
-        startRingtone()
-        setIncoming({
-          callId: offer.callId,
-          conversationId: offer.conversationId,
-          peerId: offer.peerId,
-          peerName: offer.peerName,
-          avatarUrl: offer.peerAvatar,
-          avatarColor: offer.peerColor,
-          withVideo: offer.withVideo,
-        })
+        showIncoming(offer)
         return
       }
 
@@ -321,7 +336,7 @@ export function useCall(user) {
         if (type === 'busy') showNotice('User is busy')
       }
     },
-    [user, sendSignal, applyPendingIce, cleanup, showNotice, patchCall]
+    [user, sendSignal, applyPendingIce, cleanup, showNotice, patchCall, showIncoming]
   )
 
   useEffect(() => {
@@ -397,6 +412,54 @@ export function useCall(user) {
     }
   }, [user])
 
+  useEffect(() => {
+    if (!user || !supabase) return
+    const params = new URLSearchParams(window.location.search)
+    const callId = params.get('call')
+    if (!callId) return
+    const caller = params.get('caller')
+    const action = params.get('action')
+    params.delete('call')
+    params.delete('caller')
+    params.delete('action')
+    const query = params.toString()
+    window.history.replaceState(
+      {},
+      '',
+      `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`
+    )
+
+    const restore = async () => {
+      const { data } = await supabase
+        .from('call_invites')
+        .select('*')
+        .eq('call_id', callId)
+        .eq('callee_id', user.id)
+        .maybeSingle()
+      if (!data || data.status !== 'pending') return
+      inviteCallIdRef.current = callId
+      if (action === 'decline') {
+        if (caller) await sendSignal(caller, { type: 'decline', callId })
+        await supabase.from('call_invites').update({ status: 'declined' }).eq('call_id', callId)
+        inviteCallIdRef.current = null
+        return
+      }
+      const details = data.payload || {}
+      showIncoming({
+        callId,
+        conversationId: details.conversationId,
+        peerId: data.caller_id,
+        peerName: details.fromName || 'Someone',
+        peerAvatar: details.fromAvatar || null,
+        peerColor: details.fromColor || null,
+        withVideo: Boolean(details.withVideo),
+        facingMode: details.facingMode,
+        sdp: details.sdp,
+      })
+    }
+    restore()
+  }, [user, sendSignal, showIncoming])
+
   useEffect(
     () => () => {
       cleanup(false)
@@ -444,6 +507,7 @@ export function useCall(user) {
       }
 
       const callId = makeCallId()
+      inviteCallIdRef.current = callId
       const info = {
         callId,
         conversationId,
@@ -466,11 +530,26 @@ export function useCall(user) {
       const pc = await preparePeer()
       const offer = await pc.createOffer()
       await pc.setLocalDescription(offer)
+      const sdp = descriptionOf(pc.localDescription)
+      supabase?.from('call_invites').insert({
+        call_id: callId,
+        caller_id: user.id,
+        callee_id: peerId,
+        payload: {
+          conversationId,
+          fromName: displayNameOf(user),
+          fromAvatar: selfAvatar,
+          fromColor: selfColor,
+          withVideo: info.withVideo,
+          facingMode: facingModeRef.current,
+          sdp,
+        },
+      }).then(() => {}).catch(() => {})
       const sent = await sendSignal(peerId, {
         type: 'offer',
         callId,
         conversationId,
-        sdp: descriptionOf(pc.localDescription),
+        sdp,
         fromName: displayNameOf(user),
         fromAvatar: selfAvatar,
         fromColor: selfColor,
@@ -537,6 +616,8 @@ export function useCall(user) {
     setLocalStream(stream)
     callRef.current = info
     setCall(info)
+    clearInvite(info.callId)
+    inviteCallIdRef.current = null
 
     const historyId = makeCallId()
     historyIdRef.current = historyId
@@ -570,13 +651,15 @@ export function useCall(user) {
       sdp: descriptionOf(pc.localDescription),
       facingMode: facingModeRef.current,
     })
-  }, [getStream, preparePeer, applyPendingIce, sendSignal, showNotice, cleanup, pushEntry])
+  }, [getStream, preparePeer, applyPendingIce, sendSignal, showNotice, cleanup, pushEntry, clearInvite])
 
   const declineCall = useCallback(async () => {
     const offer = incomingRef.current
     if (!offer) return
     stopRingtone()
     await sendSignal(offer.peerId, { type: 'decline', callId: offer.callId })
+    clearInvite(offer.callId)
+    inviteCallIdRef.current = null
     pushEntry({
       id: makeCallId(),
       peerId: offer.peerId,
@@ -591,7 +674,7 @@ export function useCall(user) {
     })
     incomingRef.current = null
     setIncoming(null)
-  }, [sendSignal, pushEntry])
+  }, [sendSignal, pushEntry, clearInvite])
 
   const switchCamera = useCallback(async () => {
     const stream = localRef.current

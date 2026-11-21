@@ -1,12 +1,12 @@
-const CACHE = 'chatwave-v2'
+const CACHE = 'chatwave-v3'
 const SHELL = ['/', '/index.html', '/logo.jpg', '/icons/icon-192.png', '/icons/icon-512.png']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches
-      .open(CACHE)
-      .then((cache) => cache.addAll(SHELL))
-      .then(() => self.skipWaiting())
+      caches
+        .open(CACHE)
+        .then((cache) => Promise.all(SHELL.map((url) => cache.add(url).catch(() => {}))))
+        .then(() => self.skipWaiting())
   )
 })
 
@@ -41,6 +41,24 @@ self.addEventListener('push', (event) => {
   } catch {
     data = { body: event.data ? event.data.text() : 'New message' }
   }
+  if (data.type === 'call') {
+    event.waitUntil(
+      self.registration.showNotification(data.title || 'Incoming call', {
+        body: data.body || 'Incoming ChatWave call',
+        icon: '/icons/icon-192.png',
+        badge: '/icons/icon-192.png',
+        tag: data.tag || `cw-call-${data.callId}`,
+        renotify: true,
+        requireInteraction: true,
+        data: { url: data.url || '/', callId: data.callId },
+        actions: [
+          { action: 'answer', title: 'Answer' },
+          { action: 'decline', title: 'Decline' },
+        ],
+      })
+    )
+    return
+  }
   event.waitUntil(
     self.registration.showNotification(data.title || 'ChatWave', {
       body: data.body || 'New message',
@@ -53,12 +71,28 @@ self.addEventListener('push', (event) => {
 })
 
 self.addEventListener('notificationclick', (event) => {
+  const action = event.action
   event.notification.close()
-  const target = event.notification.data?.url || '/'
+  let target = event.notification.data?.url || '/'
+  if (action === 'decline' && target.includes('call=')) {
+    target += `${target.includes('?') ? '&' : '?'}action=decline`
+  }
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-      const client = clients.find((item) => item.url.includes(target))
-      return client ? client.focus() : self.clients.openWindow(target)
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clients) => {
+      const targetUrl = new URL(target, self.location.origin)
+      const client = clients.find((item) => {
+        try {
+          const url = new URL(item.url)
+          return url.origin === targetUrl.origin && url.pathname === targetUrl.pathname
+        } catch {
+          return false
+        }
+      })
+      if (client) {
+        await client.navigate(target)
+        return client.focus()
+      }
+      return self.clients.openWindow(target)
     })
   )
 })

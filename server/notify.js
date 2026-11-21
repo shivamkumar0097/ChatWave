@@ -29,13 +29,52 @@ export async function handleNotify({ method, headers = {}, body }) {
   }
 
   const record = payload.record || {}
-  if (!record.conversation_id || !record.sender_id) {
-    return { statusCode: 200, body: 'No message data' }
-  }
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
     auth: { persistSession: false },
   })
+
+  const deliver = async (subscriptions, notification, options) => {
+    await Promise.allSettled(
+      subscriptions.map(async (row) => {
+        try {
+          await sendNotification(row.subscription, notification, options)
+        } catch (error) {
+          const status = error?.statusCode
+          if (status === 404 || status === 410) {
+            await supabase.from('push_subscriptions').delete().eq('id', row.id)
+          }
+        }
+      })
+    )
+  }
+
+  if (record.call_id && record.callee_id) {
+    const callId = record.call_id
+    const details = record.payload || {}
+    const callerName = details.fromName || 'Someone'
+    const { data: subscriptions } = await supabase
+      .from('push_subscriptions')
+      .select('id, subscription')
+      .eq('user_id', record.callee_id)
+    if (!subscriptions?.length) return { statusCode: 200, body: 'No subscriptions' }
+
+    const notification = JSON.stringify({
+      type: 'call',
+      title: callerName,
+      body: details.withVideo ? 'Incoming video call' : 'Incoming voice call',
+      tag: `cw-call-${callId}`,
+      callId,
+      url: `/?call=${encodeURIComponent(callId)}&caller=${encodeURIComponent(record.caller_id)}`,
+    })
+
+    await deliver(subscriptions, notification, { TTL: 60, urgency: 'high' })
+    return { statusCode: 200, body: 'OK' }
+  }
+
+  if (!record.conversation_id || !record.sender_id) {
+    return { statusCode: 200, body: 'No data' }
+  }
 
   const { data: members } = await supabase
     .from('conversation_members')
@@ -66,18 +105,7 @@ export async function handleNotify({ method, headers = {}, body }) {
     url: `/?chat=${record.conversation_id}`,
   })
 
-  await Promise.allSettled(
-    subscriptions.map(async (row) => {
-      try {
-        await sendNotification(row.subscription, notification)
-      } catch (error) {
-        const status = error?.statusCode
-        if (status === 404 || status === 410) {
-          await supabase.from('push_subscriptions').delete().eq('id', row.id)
-        }
-      }
-    })
-  )
+  await deliver(subscriptions, notification)
 
   return { statusCode: 200, body: 'OK' }
 }

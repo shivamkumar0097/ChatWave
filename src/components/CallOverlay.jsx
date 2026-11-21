@@ -72,6 +72,29 @@ export default function CallOverlay({
     return () => window.clearInterval(timer)
   }, [call?.startedAt])
 
+  const active = Boolean(call || incoming)
+  useEffect(() => {
+    if (!active || !('wakeLock' in navigator)) return undefined
+    let cancelled = false
+    let sentinel = null
+    const acquire = async () => {
+      if (cancelled || document.visibilityState !== 'visible') return
+      try {
+        sentinel = await navigator.wakeLock.request('screen')
+      } catch {}
+    }
+    acquire()
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') acquire()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      cancelled = true
+      document.removeEventListener('visibilitychange', onVisible)
+      if (sentinel) sentinel.release().catch(() => {})
+    }
+  }, [active])
+
   if (!incoming && !call && !notice) return null
 
   const seconds = call?.startedAt ? Math.max(0, Math.floor((now - call.startedAt) / 1000)) : 0

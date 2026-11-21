@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Mic, MicOff, Phone, PhoneOff, Video } from 'lucide-react'
+import { Mic, MicOff, Phone, PhoneOff, SwitchCamera, Video } from 'lucide-react'
 
 const formatDuration = (total) => {
   const minutes = Math.floor(total / 60)
@@ -41,11 +41,13 @@ export default function CallOverlay({
   call,
   localStream,
   remoteStream,
+  facingMode,
   notice,
   onAccept,
   onDecline,
   onEnd,
   onToggleMute,
+  onSwitchCamera,
 }) {
   const remoteVideoRef = useRef(null)
   const remoteAudioRef = useRef(null)
@@ -140,13 +142,26 @@ export default function CallOverlay({
                 className="max-h-[64vh] w-full rounded-3xl bg-black object-contain shadow-2xl max-sm:h-full max-sm:max-h-none max-sm:w-full max-sm:rounded-none max-sm:object-cover max-sm:shadow-none"
               />
               {localStream && (
-                <video
-                  ref={localVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="absolute bottom-3 right-3 h-28 w-20 rounded-xl border border-white/15 bg-black object-cover shadow-lg max-sm:bottom-24 max-sm:h-36 max-sm:w-24"
-                />
+                <div className="absolute bottom-3 right-3 flex flex-col items-end gap-2 max-sm:bottom-24">
+                  <button
+                    type="button"
+                    onClick={onSwitchCamera}
+                    className="grid h-9 w-9 place-items-center rounded-full border border-white/15 bg-black/55 text-white/90 backdrop-blur transition hover:bg-black/75 active:scale-95"
+                    aria-label="Switch camera"
+                    title="Switch camera"
+                  >
+                    <SwitchCamera size={17} />
+                  </button>
+                  <video
+                    ref={localVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className={`h-28 w-20 rounded-xl border border-white/15 bg-black object-cover shadow-lg max-sm:h-36 max-sm:w-24 ${
+                      facingMode === 'user' ? '-scale-x-100' : ''
+                    }`}
+                  />
+                </div>
               )}
             </div>
           )}

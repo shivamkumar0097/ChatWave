@@ -67,6 +67,7 @@ export function useCall(user) {
   const [call, setCall] = useState(null)
   const [localStream, setLocalStream] = useState(null)
   const [remoteStream, setRemoteStream] = useState(null)
+  const [facingMode, setFacingMode] = useState('user')
   const [notice, setNotice] = useState('')
   const [history, setHistory] = useState(() => readHistory(user?.id))
 
@@ -78,6 +79,7 @@ export function useCall(user) {
   const incomingRef = useRef(null)
   const pcRef = useRef(null)
   const localRef = useRef(null)
+  const facingModeRef = useRef('user')
   const peerChannelsRef = useRef(new Map())
   const pendingIceRef = useRef([])
   const timerRef = useRef(null)
@@ -157,6 +159,8 @@ export function useCall(user) {
       setCall(null)
       setLocalStream(null)
       setRemoteStream(null)
+      facingModeRef.current = 'user'
+      setFacingMode('user')
     },
     [sendSignal]
   )
@@ -391,29 +395,20 @@ export function useCall(user) {
     [cleanup]
   )
 
-  const getStream = useCallback(async (withVideo) => {
-    const request = (video) =>
-      navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video })
-
+  const getStream = useCallback(async (withVideo, mode = 'user') => {
+    const video = withVideo ? { facingMode: { ideal: mode } } : false
     try {
-      return await request(withVideo)
+      return await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video })
     } catch {
       if (withVideo) {
         try {
-          return await request(false)
-        } catch {
-          try {
-            return await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-          } catch {
-            return null
-          }
-        }
+          return await navigator.mediaDevices.getUserMedia({ video, audio: false })
+        } catch {}
       }
       try {
         return await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-      } catch {
-        return null
-      }
+      } catch {}
+      return null
     }
   }, [])
 
@@ -429,7 +424,7 @@ export function useCall(user) {
       withVideo = false,
     }) => {
       if (!user || callRef.current || incomingRef.current) return
-      const stream = await getStream(withVideo)
+      const stream = await getStream(withVideo, facingModeRef.current)
       if (!stream) {
         showNotice('Microphone or camera access denied')
         return
@@ -503,7 +498,7 @@ export function useCall(user) {
     const offer = incomingRef.current
     if (!offer) return
     stopRingtone()
-    const stream = await getStream(offer.withVideo)
+    const stream = await getStream(offer.withVideo, facingModeRef.current)
     if (!stream) {
       showNotice('Microphone or camera access denied')
       return
@@ -583,6 +578,57 @@ export function useCall(user) {
     setIncoming(null)
   }, [sendSignal, pushEntry])
 
+  const switchCamera = useCallback(async () => {
+    const stream = localRef.current
+    const pc = pcRef.current
+    if (!stream || !pc || pc.signalingState === 'closed') return
+    if (!stream.getVideoTracks().length) return
+
+    const nextFacing = facingModeRef.current === 'user' ? 'environment' : 'user'
+    let nextStream
+    try {
+      nextStream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: { ideal: nextFacing } },
+      })
+    } catch {
+      showNotice('Could not switch camera')
+      return
+    }
+
+    const nextTrack = nextStream.getVideoTracks()[0]
+    if (!nextTrack) {
+      nextStream.getTracks().forEach((track) => track.stop())
+      showNotice('Could not switch camera')
+      return
+    }
+
+    const sender = pc.getSenders().find((item) => item.track?.kind === 'video')
+    if (!sender) {
+      nextTrack.stop()
+      return
+    }
+    try {
+      await sender.replaceTrack(nextTrack)
+    } catch {
+      nextTrack.stop()
+      showNotice('Could not switch camera')
+      return
+    }
+
+    const oldTrack = stream.getVideoTracks()[0]
+    if (oldTrack) {
+      stream.removeTrack(oldTrack)
+      oldTrack.stop()
+    }
+    stream.addTrack(nextTrack)
+    facingModeRef.current = nextFacing
+    setFacingMode(nextFacing)
+    const updated = new MediaStream(stream.getTracks())
+    localRef.current = updated
+    setLocalStream(updated)
+  }, [showNotice])
+
   const endCall = useCallback(() => cleanup(true), [cleanup])
 
   const toggleMute = useCallback(() => {
@@ -600,12 +646,14 @@ export function useCall(user) {
     call,
     localStream,
     remoteStream,
+    facingMode,
     notice,
     startCall,
     acceptCall,
     declineCall,
     endCall,
     toggleMute,
+    switchCamera,
     history,
     removeHistoryEntry,
     clearHistory,

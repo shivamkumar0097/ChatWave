@@ -114,12 +114,14 @@ function ChatApp() {
     call,
     localStream,
     remoteStream,
+    facingMode,
     notice,
     startCall,
     acceptCall,
     declineCall,
     endCall,
     toggleMute,
+    switchCamera,
     history: callHistory,
     removeHistoryEntry,
   } = useCall(user)
@@ -820,11 +822,13 @@ function ChatApp() {
         call={call}
         localStream={localStream}
         remoteStream={remoteStream}
+        facingMode={facingMode}
         notice={notice}
         onAccept={acceptCall}
         onDecline={declineCall}
         onEnd={endCall}
         onToggleMute={toggleMute}
+        onSwitchCamera={switchCamera}
       />
       {profileOpen && (
         <ProfileModal

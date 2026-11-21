@@ -1,11 +1,15 @@
-﻿import { useState } from 'react'
-import { ArrowRight, AtSign, Check, Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck, User, Users, X, Zap } from 'lucide-react'
+﻿import { useEffect, useState } from 'react'
+import { ArrowLeft, ArrowRight, AtSign, Check, Eye, EyeOff, Loader2, Lock, Mail, Moon, ShieldCheck, Sun, User, Users, X, Zap } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
+import InstallPrompt from '@/components/InstallPrompt'
 
 const USERNAME_PATTERN = /^[a-z0-9._]{3,20}$/
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const cleanUsername = (value) => value.trim().toLowerCase().replace(/^@/, '')
+
+const STEP_LABELS = ['Account', 'Username', 'Security']
 
 const TERMS = [
   {
@@ -80,6 +84,43 @@ function TermsModal({ onClose }) {
   )
 }
 
+function Field({ icon: Icon, label, id, value, onChange, valid = false, action = null, ...inputProps }) {
+  const [focused, setFocused] = useState(false)
+  const floated = focused || value.length > 0
+
+  return (
+    <div className="group relative">
+      <Icon
+        size={16}
+        className="pointer-events-none absolute left-3.5 top-1/2 z-10 -translate-y-1/2 text-wa-muted transition-colors group-focus-within:text-wa-green"
+      />
+      <input
+        {...inputProps}
+        id={id}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        placeholder=" "
+        aria-label={label}
+        className={`input-luxe pb-1.5 pl-10 pt-5 ${action ? 'pr-11' : valid ? 'pr-10' : ''}`}
+      />
+      <label
+        htmlFor={id}
+        className={`pointer-events-none absolute left-10 z-10 text-[13px] transition-all duration-200 ${
+          floated ? 'top-[6px] scale-[0.82] text-wa-green/90' : 'top-1/2 -translate-y-1/2 text-wa-muted'
+        }`}
+      >
+        {label}
+      </label>
+      {valid && !action && (
+        <Check size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-wa-green" />
+      )}
+      {action}
+    </div>
+  )
+}
+
 const features = [
   {
     icon: Zap,
@@ -101,6 +142,7 @@ const features = [
 export default function AuthScreen() {
   const { signIn, signUp } = useAuth()
   const [mode, setMode] = useState('signin')
+  const [step, setStep] = useState(0)
   const [name, setName] = useState('')
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
@@ -111,11 +153,46 @@ export default function AuthScreen() {
   const [termsOpen, setTermsOpen] = useState(false)
   const [agreed, setAgreed] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-
   const isSignup = mode === 'signup'
+  const [usernameStatus, setUsernameStatus] = useState('idle')
+  const [theme, setTheme] = useState(() => window.localStorage.getItem('cw-theme') || 'dark')
+
+  useEffect(() => {
+    const handle = cleanUsername(username)
+    if (!isSignup || !USERNAME_PATTERN.test(handle)) {
+      setUsernameStatus('idle')
+      return undefined
+    }
+    setUsernameStatus('checking')
+    let cancelled = false
+    const timer = window.setTimeout(async () => {
+      if (!supabase) {
+        setUsernameStatus('available')
+        return
+      }
+      const { data } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', handle)
+        .limit(1)
+      if (!cancelled) setUsernameStatus(data?.length ? 'taken' : 'available')
+    }, 450)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [username, isSignup])
+
+  const toggleTheme = () => {
+    const next = theme === 'light' ? 'dark' : 'light'
+    setTheme(next)
+    window.localStorage.setItem('cw-theme', next)
+    document.documentElement.classList.toggle('light', next === 'light')
+  }
 
   const switchMode = (next) => {
     setMode(next)
+    setStep(0)
     setError('')
     setNotice('')
   }
@@ -130,13 +207,13 @@ export default function AuthScreen() {
     return score
   })()
 
-  const strengthMeta = [
-    { label: 'Too short', bar: 'bg-red-400/80', text: 'text-red-300' },
-    { label: 'Weak', bar: 'bg-red-400/80', text: 'text-red-300' },
-    { label: 'Okay', bar: 'bg-amber-300/80', text: 'text-amber-200' },
-    { label: 'Good', bar: 'bg-accent-2/80', text: 'text-accent-2' },
-    { label: 'Strong', bar: 'bg-wa-green', text: 'text-wa-green' },
-  ][strength]
+  const strengthLabel = ['Too short', 'Weak', 'Okay', 'Good', 'Strong'][strength]
+
+  const passwordChecks = [
+    { label: '6+ characters', ok: password.length >= 6 },
+    { label: 'A number', ok: /\d/.test(password) },
+    { label: 'Uppercase + symbol', ok: /[A-Z]/.test(password) && /[^A-Za-z0-9]/.test(password) },
+  ]
 
   const submit = async (event) => {
     event.preventDefault()
@@ -184,6 +261,89 @@ export default function AuthScreen() {
     }
   }
 
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    setError('')
+    setNotice('')
+
+    if (isSignup && step === 0) {
+      if (!EMAIL_PATTERN.test(email.trim())) {
+        setError('Enter a valid email address to continue.')
+        return
+      }
+      setStep(1)
+      return
+    }
+
+    if (isSignup && step === 1) {
+      const handle = cleanUsername(username)
+      if (!USERNAME_PATTERN.test(handle)) {
+        setError('Username must be 3-20 characters: letters, numbers, . or _ (no spaces).')
+        return
+      }
+      if (supabase) {
+        const { data: taken } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('username', handle)
+          .limit(1)
+        if (taken?.length) {
+          setError('That username is already taken.')
+          return
+        }
+      }
+      setStep(2)
+      return
+    }
+
+    await submit(event)
+  }
+
+  const passwordField = (
+    <Field
+      icon={Lock}
+      label="Password"
+      id="auth-password"
+      name="password"
+      type={showPassword ? 'text' : 'password'}
+      autoComplete={isSignup ? 'new-password' : 'current-password'}
+      required
+      minLength={6}
+      value={password}
+      onChange={setPassword}
+      action={
+        <button
+          type="button"
+          onClick={() => setShowPassword((value) => !value)}
+          onMouseDown={(event) => event.preventDefault()}
+          className="absolute right-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-wa-muted transition-colors hover:bg-white/[0.06] hover:text-wa-text"
+          aria-label={showPassword ? 'Hide password' : 'Show password'}
+          aria-pressed={showPassword}
+        >
+          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
+      }
+    />
+  )
+
+  const emailField = (
+    <Field
+      icon={Mail}
+      label="Email address"
+      id="auth-email"
+      name="email"
+      type="email"
+      inputMode="email"
+      autoComplete="email"
+      autoCapitalize="none"
+      spellCheck={false}
+      required
+      value={email}
+      onChange={setEmail}
+      valid={EMAIL_PATTERN.test(email.trim())}
+    />
+  )
+
   return (
     <div className="relative h-full overflow-x-hidden overflow-y-auto bg-wa-bg px-4 py-10 sm:px-6 lg:px-10">
       <div className="aurora-blob left-[-8%] top-[-12%] h-80 w-80 bg-[#7c5cff]/50" />
@@ -195,6 +355,21 @@ export default function AuthScreen() {
         className="aurora-blob bottom-[-14%] left-[35%] h-72 w-80 bg-[#f472b6]/25"
         style={{ animationDelay: '-11s' }}
       />
+
+      <div className="pointer-events-none absolute inset-0 hidden overflow-hidden lg:block" aria-hidden="true">
+        <div
+          className="animate-float absolute left-[12%] top-[26%] rounded-2xl rounded-bl-sm border border-white/[0.06] bg-white/[0.035] px-4 py-3 text-[12px] text-wa-muted/70 backdrop-blur-sm"
+          style={{ animationDelay: '-2s' }}
+        >
+          Hey, are you there?
+        </div>
+        <div
+          className="animate-float absolute right-[14%] top-[58%] rounded-2xl rounded-br-sm border border-wa-green/15 bg-wa-green/[0.06] px-4 py-3 text-[12px] text-wa-green/70 backdrop-blur-sm"
+          style={{ animationDelay: '-7s' }}
+        >
+          Always here. Let's talk.
+        </div>
+      </div>
 
       <div className="relative mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-6xl items-center">
         <div className="grid w-full items-center gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16">
@@ -244,77 +419,121 @@ export default function AuthScreen() {
                 <h1 className="text-2xl font-semibold tracking-tight">ChatWave</h1>
                 <p className="mt-1 text-sm text-wa-muted">Chats that flow with you.</p>
               </div>
+              <div className="mt-1 flex flex-wrap justify-center gap-1.5">
+                {['Real-time', 'Private', 'Free'].map((chip) => (
+                  <span
+                    key={chip}
+                    className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-[10px] text-wa-muted"
+                  >
+                    {chip}
+                  </span>
+                ))}
+              </div>
             </div>
 
-            <div className="glass-strong relative overflow-hidden rounded-3xl p-6 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)] sm:p-7">
-              <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-wa-green/60 to-transparent" />
+            <div className="rounded-3xl bg-gradient-to-br from-wa-green/35 via-white/[0.06] to-accent-2/35 p-px shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)]">
+              <div className="glass-strong relative overflow-hidden rounded-3xl p-6 sm:p-7">
+                <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-wa-green/60 to-transparent" />
 
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold tracking-tight">
-                  {isSignup ? 'Create your account' : 'Welcome back'}
-                </h2>
-                <p className="mt-1 text-[13px] text-wa-muted">
-                  {isSignup
-                    ? 'It takes less than a minute to get started.'
-                    : 'Sign in to pick up where you left off.'}
-                </p>
-              </div>
+                <div className="mb-6 flex items-start justify-between gap-3">
+                  <div className="heading-stagger">
+                    <h2 className="text-xl font-semibold tracking-tight">
+                      {isSignup ? 'Create your account' : 'Welcome back'}
+                    </h2>
+                    <p className="mt-1 text-[13px] text-wa-muted">
+                      {isSignup
+                        ? 'Three tiny steps and you are in.'
+                        : 'Sign in to pick up where you left off.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={toggleTheme}
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-wa-muted transition-colors hover:border-wa-green/30 hover:text-wa-text"
+                    aria-label={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+                    title={theme === 'light' ? 'Dark theme' : 'Light theme'}
+                  >
+                    {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+                  </button>
+                </div>
 
-              <div className="mb-5 grid grid-cols-2 gap-1 rounded-xl border border-white/[0.06] bg-black/30 p-1 text-[13px]">
-                <button
-                  type="button"
-                  onClick={() => switchMode('signin')}
-                  aria-pressed={!isSignup}
-                  className={`rounded-lg py-2 font-medium transition-all duration-200 ${
-                    !isSignup
-                      ? 'bg-white/[0.09] text-white shadow-sm'
-                      : 'text-wa-muted hover:text-wa-text'
-                  }`}
-                >
-                  Sign in
-                </button>
-                <button
-                  type="button"
-                  onClick={() => switchMode('signup')}
-                  aria-pressed={isSignup}
-                  className={`rounded-lg py-2 font-medium transition-all duration-200 ${
-                    isSignup
-                      ? 'bg-white/[0.09] text-white shadow-sm'
-                      : 'text-wa-muted hover:text-wa-text'
-                  }`}
-                >
-                  Create account
-                </button>
-              </div>
+                <div className="relative mb-5 grid grid-cols-2 gap-1 rounded-xl border border-white/[0.06] bg-black/30 p-1 text-[13px]">
+                  <span
+                    className={`absolute bottom-1 left-1 top-1 w-[calc(50%-0.25rem)] rounded-lg bg-white/[0.09] shadow-[0_0_0_1px_rgba(124,92,255,0.22),0_6px_18px_-8px_rgba(124,92,255,0.7)] transition-transform duration-300 ${
+                      isSignup ? 'translate-x-full' : 'translate-x-0'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => switchMode('signin')}
+                    aria-pressed={!isSignup}
+                    className={`relative z-10 rounded-lg py-2 font-medium transition-colors duration-200 ${
+                      !isSignup ? 'text-white' : 'text-wa-muted hover:text-wa-text'
+                    }`}
+                  >
+                    Sign in
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => switchMode('signup')}
+                    aria-pressed={isSignup}
+                    className={`relative z-10 rounded-lg py-2 font-medium transition-colors duration-200 ${
+                      isSignup ? 'text-white' : 'text-wa-muted hover:text-wa-text'
+                    }`}
+                  >
+                    Create account
+                  </button>
+                </div>
 
-              <form onSubmit={submit} className="form-stagger flex flex-col gap-3.5">
                 {isSignup && (
-                  <div className="group relative">
-                    <User
-                      size={16}
-                      className="pointer-events-none absolute left-3.5 top-1/2 z-10 -translate-y-1/2 text-wa-muted transition-colors group-focus-within:text-wa-green"
-                    />
-                    <input
-                      id="auth-name"
-                      name="name"
-                      autoComplete="name"
-                      value={name}
-                      onChange={(event) => setName(event.target.value)}
-                      placeholder="Your name"
-                      aria-label="Your name"
-                      className="input-luxe pl-10"
-                    />
+                  <div className="mb-5">
+                    <div className="mb-2 flex items-center justify-between text-[10.5px] font-medium uppercase tracking-[0.14em] text-wa-muted">
+                      <span>Step {step + 1} of 3</span>
+                      <span>{STEP_LABELS[step]}</span>
+                    </div>
+                    <div className="flex gap-1.5">
+                      {STEP_LABELS.map((label, index) => (
+                        <button
+                          key={label}
+                          type="button"
+                          disabled={index > step}
+                          onClick={() => index < step && setStep(index)}
+                          aria-label={`Go to ${label} step`}
+                          className={`h-1 flex-1 rounded-full transition-all duration-300 ${
+                            index <= step
+                              ? 'bg-gradient-to-r from-wa-green to-accent-2'
+                              : 'bg-white/10'
+                          }`}
+                        />
+                      ))}
+                    </div>
                   </div>
                 )}
 
-                {isSignup && (
-                  <div className="group">
-                    <div className="relative">
-                      <AtSign
-                        size={16}
-                        className="pointer-events-none absolute left-3.5 top-1/2 z-10 -translate-y-1/2 text-wa-muted transition-colors group-focus-within:text-wa-green"
-                      />
-                      <input
+                <form onSubmit={handleSubmit} className="form-stagger flex flex-col gap-3.5">
+                  {(!isSignup || step === 0) && (
+                    <>
+                      {isSignup && (
+                        <Field
+                          icon={User}
+                          label="Your name"
+                          id="auth-name"
+                          name="name"
+                          autoComplete="name"
+                          value={name}
+                          onChange={setName}
+                          valid={name.trim().length > 1}
+                        />
+                      )}
+                      {emailField}
+                    </>
+                  )}
+
+                  {isSignup && step === 1 && (
+                    <div className="space-y-1.5">
+                      <Field
+                        icon={AtSign}
+                        label="Username"
                         id="auth-username"
                         name="username"
                         autoComplete="username"
@@ -322,110 +541,148 @@ export default function AuthScreen() {
                         spellCheck={false}
                         required
                         value={username}
-                        onChange={(event) => setUsername(event.target.value)}
-                        placeholder="Username"
-                        aria-label="Username"
-                        className="input-luxe pl-10"
+                        onChange={setUsername}
+                        valid={USERNAME_PATTERN.test(cleanUsername(username))}
                       />
+                      <div className="flex items-center justify-between gap-2 pl-1 text-[10px] leading-relaxed text-wa-muted">
+                        <span>3-20 characters · letters, numbers, . or _ · no spaces</span>
+                        {usernameStatus === 'checking' && (
+                          <span className="flex shrink-0 items-center gap-1 text-wa-muted">
+                            <Loader2 size={10} className="animate-spin" /> Checking
+                          </span>
+                        )}
+                        {usernameStatus === 'available' && (
+                          <span className="flex shrink-0 items-center gap-1 text-wa-green">
+                            <Check size={10} /> Available
+                          </span>
+                        )}
+                        {usernameStatus === 'taken' && (
+                          <span className="flex shrink-0 items-center gap-1 text-red-300">
+                            <X size={10} /> Taken
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <span className="mt-1 block text-[10px] leading-relaxed text-wa-muted">
-                      3-20 characters · letters, numbers, . or _ · no spaces
-                    </span>
+                  )}
+
+                  {(!isSignup || step === 2) && (
+                    <>
+                      {passwordField}
+                      {isSignup && password && (
+                        <div className="-mt-0.5 flex flex-wrap gap-1.5">
+                          {passwordChecks.map((check) => (
+                            <span
+                              key={check.label}
+                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] transition-colors ${
+                                check.ok
+                                  ? 'border-wa-green/25 bg-wa-green/[0.07] text-wa-green'
+                                  : 'border-white/[0.07] bg-white/[0.02] text-wa-muted'
+                              }`}
+                            >
+                              {check.ok ? <Check size={10} /> : <X size={10} />}
+                              {check.label}
+                            </span>
+                          ))}
+                          <span className="ml-auto self-center text-[10px] font-medium text-wa-muted">
+                            {strengthLabel}
+                          </span>
+                        </div>
+                      )}
+                      {isSignup && (
+                        <div className="flex items-start gap-2.5 text-[12px] leading-relaxed text-wa-muted">
+                          <input
+                            id="auth-terms"
+                            type="checkbox"
+                            checked={agreed}
+                            onChange={(event) => {
+                              setAgreed(event.target.checked)
+                              if (event.target.checked) setError('')
+                            }}
+                            className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-wa-green"
+                          />
+                          <span>
+                            <label htmlFor="auth-terms" className="cursor-pointer">
+                              I agree to the{' '}
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setTermsOpen(true)}
+                              className="font-medium text-wa-green underline decoration-wa-green/40 underline-offset-2 transition-colors hover:decoration-wa-green"
+                            >
+                              Terms & Conditions
+                            </button>
+                            <label htmlFor="auth-terms" className="cursor-pointer">
+                              {' '}
+                              and the privacy practices of ChatWave.
+                            </label>
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {error && (
+                    <p
+                      key={error}
+                      role="alert"
+                      className="animate-shake flex items-start gap-2 rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2 text-[12.5px] leading-relaxed text-red-300"
+                    >
+                      <X size={14} className="animate-pop mt-0.5 shrink-0" />
+                      <span>{error}</span>
+                    </p>
+                  )}
+                  {notice && (
+                    <p
+                      key={notice}
+                      role="status"
+                      className="animate-pop-in flex items-start gap-2 rounded-xl border border-accent-2/25 bg-accent-2/10 px-3 py-2 text-[12.5px] leading-relaxed text-accent-2"
+                    >
+                      <Check size={14} className="animate-pop mt-0.5 shrink-0" />
+                      <span>{notice}</span>
+                    </p>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    {isSignup && step > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStep((value) => value - 1)
+                          setError('')
+                          setNotice('')
+                        }}
+                        className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-wa-muted transition-colors hover:text-wa-text"
+                        aria-label="Previous step"
+                      >
+                        <ArrowLeft size={17} />
+                      </button>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={busy}
+                      aria-busy={busy}
+                      className="btn-accent btn-shimmer mt-1 flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {busy ? (
+                        <>
+                          <Loader2 size={17} className="animate-spin" />
+                          Please wait...
+                        </>
+                      ) : (
+                        <>
+                          {isSignup ? (step === 2 ? 'Create account' : 'Continue') : 'Sign in'}
+                          <ArrowRight size={17} />
+                        </>
+                      )}
+                    </button>
                   </div>
-                )}
+                </form>
 
-                <div className="group relative">
-                  <Mail
-                    size={16}
-                    className="pointer-events-none absolute left-3.5 top-1/2 z-10 -translate-y-1/2 text-wa-muted transition-colors group-focus-within:text-wa-green"
-                  />
-                  <input
-                    id="auth-email"
-                    name="email"
-                    type="email"
-                    inputMode="email"
-                    autoComplete="email"
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    required
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="Email address"
-                    aria-label="Email address"
-                    className="input-luxe pl-10"
-                  />
-                </div>
-
-                <div className="group relative">
-                  <Lock
-                    size={16}
-                    className="pointer-events-none absolute left-3.5 top-1/2 z-10 -translate-y-1/2 text-wa-muted transition-colors group-focus-within:text-wa-green"
-                  />
-                  <input
-                    id="auth-password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete={isSignup ? 'new-password' : 'current-password'}
-                    required
-                    minLength={6}
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    placeholder="Password (min 6 characters)"
-                    aria-label="Password"
-                    className="input-luxe pl-10 pr-11"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((value) => !value)}
-                    onMouseDown={(event) => event.preventDefault()}
-                    className="absolute right-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-wa-muted transition-colors hover:bg-white/[0.06] hover:text-wa-text"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    aria-pressed={showPassword}
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-
-                {isSignup && password && (
-                  <div className="-mt-0.5 space-y-1.5">
-                    <div className="flex gap-1">
-                      {[0, 1, 2, 3].map((index) => (
-                        <span
-                          key={index}
-                          className={`h-1 flex-1 rounded-full transition-colors duration-300 ${
-                            index < Math.max(1, strength) ? strengthMeta.bar : 'bg-white/10'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <div className="flex items-center justify-between text-[10.5px]">
-                      <span className={`font-medium ${strengthMeta.text}`}>
-                        {strengthMeta.label}
-                      </span>
-                      <span className="flex items-center gap-1 text-wa-muted">
-                        {password.length >= 6 && <Check size={11} className="text-wa-green" />}
-                        Use 6+ characters
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {isSignup && (
-                  <div className="flex items-start gap-2.5 text-[12px] leading-relaxed text-wa-muted">
-                    <input
-                      id="auth-terms"
-                      type="checkbox"
-                      checked={agreed}
-                      onChange={(event) => {
-                        setAgreed(event.target.checked)
-                        if (event.target.checked) setError('')
-                      }}
-                      className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-wa-green"
-                    />
-                    <span>
-                      <label htmlFor="auth-terms" className="cursor-pointer">
-                        I agree to the{' '}
-                      </label>
+                <p className="mt-5 text-center text-[11px] leading-relaxed text-wa-muted">
+                  Secure sessions powered by Supabase. Your chats stay yours.
+                  {!isSignup && (
+                    <>
+                      {' '}
                       <button
                         type="button"
                         onClick={() => setTermsOpen(true)}
@@ -433,68 +690,12 @@ export default function AuthScreen() {
                       >
                         Terms & Conditions
                       </button>
-                      <label htmlFor="auth-terms" className="cursor-pointer">
-                        {' '}
-                        and the privacy practices of ChatWave.
-                      </label>
-                    </span>
-                  </div>
-                )}
-
-                {error && (
-                  <p
-                    role="alert"
-                    className="animate-pop-in flex items-start gap-2 rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2 text-[12.5px] leading-relaxed text-red-300"
-                  >
-                    <X size={14} className="mt-0.5 shrink-0" />
-                    <span>{error}</span>
-                  </p>
-                )}
-                {notice && (
-                  <p
-                    role="status"
-                    className="animate-pop-in flex items-start gap-2 rounded-xl border border-accent-2/25 bg-accent-2/10 px-3 py-2 text-[12.5px] leading-relaxed text-accent-2"
-                  >
-                    <Check size={14} className="mt-0.5 shrink-0" />
-                    <span>{notice}</span>
-                  </p>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={busy}
-                  aria-busy={busy}
-                  className="btn-accent mt-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {busy ? (
-                    <>
-                      <Loader2 size={17} className="animate-spin" />
-                      Please wait...
-                    </>
-                  ) : (
-                    <>
-                      {isSignup ? 'Create account' : 'Sign in'}
-                      <ArrowRight size={17} />
                     </>
                   )}
-                </button>
-              </form>
+                </p>
 
-              <p className="mt-5 text-center text-[11px] leading-relaxed text-wa-muted">
-                Secure sessions powered by Supabase. Your chats stay yours.
-                {!isSignup && (
-                  <>
-                    {' '}
-                    <button
-                      type="button"
-                      onClick={() => setTermsOpen(true)}
-                      className="font-medium text-wa-green underline decoration-wa-green/40 underline-offset-2 transition-colors hover:decoration-wa-green"
-                    >
-                      Terms & Conditions
-                    </button>
-                  </>
-                )}
-              </p>
+                <InstallPrompt />
+              </div>
             </div>
 
             <p className="mt-5 text-center text-[11px] text-wa-muted">
@@ -508,7 +709,3 @@ export default function AuthScreen() {
     </div>
   )
 }
-
-
-
-

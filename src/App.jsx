@@ -15,7 +15,6 @@ import AppLock from '@/components/AppLock'
 import AuthScreen from '@/pages/AuthScreen'
 import CallOverlay from '@/components/CallOverlay'
 import CallsPanel from '@/components/CallsPanel'
-import InstallPrompt from '@/components/InstallPrompt'
 import CommunityPanel from '@/components/CommunityPanel'
 import StatusPanel from '@/components/StatusPanel'
 import ContactCard from '@/components/ContactCard'
@@ -930,7 +929,6 @@ export default function App() {
   return (
     <AuthProvider>
       <AuthGate />
-      <InstallPrompt />
     </AuthProvider>
   )
 }

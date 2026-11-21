@@ -58,7 +58,10 @@ export default function CallOverlay({
   useEffect(() => {
     if (!remoteStream) return
     const node = call?.withVideo ? remoteVideoRef.current : remoteAudioRef.current
-    if (node) node.srcObject = remoteStream
+    if (node) {
+      node.srcObject = remoteStream
+      if ('playoutDelayHint' in node) node.playoutDelayHint = 0
+    }
   }, [remoteStream, call?.withVideo])
 
   useEffect(() => {

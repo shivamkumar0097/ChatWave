@@ -27,6 +27,14 @@ const AUDIO_CONSTRAINTS = {
   sampleRate: { ideal: 48000 },
 }
 
+const VIDEO_LIMITS = {
+  width: { ideal: 640 },
+  height: { ideal: 480 },
+  frameRate: { ideal: 24, max: 30 },
+}
+
+const videoConstraints = (mode) => ({ ...VIDEO_LIMITS, facingMode: { ideal: mode } })
+
 if (import.meta.env.VITE_TURN_URL) {
   ICE_SERVERS.push({
     urls: import.meta.env.VITE_TURN_URL,
@@ -597,7 +605,7 @@ export function useCall(user) {
   )
 
   const getStream = useCallback(async (withVideo, mode = 'user') => {
-    const constrained = withVideo ? { facingMode: { ideal: mode } } : false
+    const constrained = withVideo ? videoConstraints(mode) : false
     if (withVideo) {
       for (const video of [constrained, true]) {
         try {
@@ -851,10 +859,22 @@ export function useCall(user) {
     const request = async (video) => navigator.mediaDevices.getUserMedia({ audio: false, video })
     const attempts = []
     if (alternate?.deviceId) {
-      attempts.push({ video: { deviceId: { exact: alternate.deviceId } }, exact: true, switched: true })
+      attempts.push({
+        video: { ...VIDEO_LIMITS, deviceId: { exact: alternate.deviceId } },
+        exact: true,
+        switched: true,
+      })
     }
-    attempts.push({ video: { facingMode: { exact: nextFacing } }, exact: true, switched: true })
-    attempts.push({ video: { facingMode: { ideal: nextFacing } }, facing: nextFacing, switched: true })
+    attempts.push({
+      video: { ...VIDEO_LIMITS, facingMode: { exact: nextFacing } },
+      exact: true,
+      switched: true,
+    })
+    attempts.push({
+      video: { ...VIDEO_LIMITS, facingMode: { ideal: nextFacing } },
+      facing: nextFacing,
+      switched: true,
+    })
     attempts.push({ video: true, exact: true, switched: false })
 
     stream.removeTrack(oldTrack)
@@ -883,7 +903,7 @@ export function useCall(user) {
     }
 
     if (!nextStream) {
-      for (const video of [{ facingMode: { ideal: facingModeRef.current } }, true]) {
+      for (const video of [videoConstraints(facingModeRef.current), true]) {
         try {
           const candidate = await request(video)
           if (candidate.getVideoTracks().length) {
